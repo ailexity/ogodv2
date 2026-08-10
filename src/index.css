@@ -1,0 +1,3812 @@
+/* ==========================================================================
+   OGod — Minimalist theme
+   Flat, white-first design: white background and surfaces, black ink text,
+   subtle gray borders for structure. No blur, no gradients, no translucency.
+   Primary actions and "selected" states use solid black fill with white text.
+   ========================================================================== */
+
+:root {
+  --ink: #111114;
+  --ink-soft: #55555c;
+  --ink-faint: #8c8c93;
+
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #f6f6f7;
+
+  --border: #e6e6e9;
+  --border-strong: #d6d6db;
+
+  --accent: #111114;
+  --accent-contrast: #ffffff;
+
+  --danger: #d92d20;
+  --success: #34c759;
+  --star: #ff9f0a;
+
+  /* Violet is the single non-neutral accent: focus rings, the compose button
+     and inline links. Everything else stays black-on-white. */
+  --violet: #7c5cfc;
+  --violet-soft: rgba(124, 92, 252, 0.15);
+
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(17, 17, 20, 0.04);
+  --shadow-md: 0 4px 16px rgba(17, 17, 20, 0.06);
+  --shadow-float: 0 10px 34px rgba(17, 17, 20, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  color: var(--ink);
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+  overflow-x: hidden;
+}
+
+/* ---------- Auth pages ---------------------------------------------- */
+
+.page {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  padding: max(32px, env(safe-area-inset-top)) 20px
+    max(20px, env(safe-area-inset-bottom));
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: clamp(36px, 12vh, 72px);
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--ink);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-row {
+  display: flex;
+  gap: 12px;
+}
+
+.field-row .field {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.field input,
+.field textarea {
+  padding: 0 14px;
+  font-size: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  outline: none;
+  color: var(--ink);
+  background: var(--surface-alt);
+  transition: border-color 0.15s ease, background 0.15s ease;
+  width: 100%;
+}
+
+.field input {
+  height: 48px;
+}
+
+.field textarea {
+  height: auto;
+  min-height: 64px;
+  padding: 12px 14px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.4;
+}
+
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+.field input:focus,
+.field textarea:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-contrast);
+}
+
+.switch-text {
+  margin: 20px 0 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.switch-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.checkbox input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.link {
+  color: var(--ink);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link-button {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.submit {
+  height: 50px;
+  margin-top: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+  width: 100%;
+}
+
+.submit:active {
+  transform: scale(0.98);
+}
+
+.submit:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.google-btn:hover {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+}
+
+.google-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.form-error {
+  margin: -6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+/* ---------- App shell ------------------------------------------------- */
+
+.app-shell {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: max(16px, env(safe-area-inset-top)) 20px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-mark-sm {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+
+.app-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0 calc(96px + env(safe-area-inset-bottom));
+}
+
+.home-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-blank {
+  flex: 1;
+}
+
+.section-title {
+  margin: 0 0 12px;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.scroll-row {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 0 20px 4px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-row > * {
+  flex-shrink: 0;
+}
+
+.category-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rating-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rating-pill svg {
+  width: 13px;
+  height: 13px;
+  color: var(--star);
+}
+
+.rating-pill-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.rating-pill-new {
+  color: #1a7f37;
+}
+
+.trip-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 20px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.trip-thumb svg {
+  width: 34px;
+  height: 34px;
+}
+
+.trip-thumb-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-thumb-sm {
+  width: 64px;
+  height: 64px;
+  aspect-ratio: auto;
+  border-radius: 15px;
+  flex-shrink: 0;
+}
+
+.trip-thumb-sm svg {
+  width: 24px;
+  height: 24px;
+}
+
+.trip-list-section {
+  margin-bottom: 28px;
+}
+
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 20px;
+}
+
+.trip-list-empty {
+  margin: 0;
+  padding: 12px 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.trip-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.trip-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-row-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-row-location {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.trip-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.trip-row-meta .rating-pill {
+  color: var(--ink);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.empty-state-cta {
+  width: auto;
+  min-width: 180px;
+  padding: 0 24px;
+}
+
+/* ---------- Explore --------------------------------------------------- */
+
+.explore-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 20px 16px;
+  padding: 0 14px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+
+.search-bar svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--ink-faint);
+}
+
+.search-bar input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 15px;
+  color: var(--ink);
+  height: 100%;
+}
+
+.search-bar input::placeholder {
+  color: var(--ink-faint);
+}
+
+.explore-results {
+  padding: 0 20px;
+}
+
+.my-trips {
+  padding-top: 4px;
+}
+
+.logout-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 12px max(10px, env(safe-area-inset-bottom));
+  z-index: 20;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 13px;
+  background: none;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.nav-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.nav-btn-active {
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.nav-post {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-top: -18px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+}
+
+.nav-post svg {
+  width: 22px;
+  height: 22px;
+}
+
+@media (min-width: 481px) {
+  .app-shell {
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+}
+
+@media (max-width: 360px) {
+  .page {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .brand {
+    margin-bottom: clamp(28px, 8vh, 48px);
+  }
+}
+
+/* ---------- Sheets / overlays ------------------------------------------ */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 20, 0.32);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+}
+
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 24px 24px 0 0;
+  padding: 12px 20px max(20px, env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-md);
+  animation: sheet-up 0.2s ease;
+  overflow: hidden;
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheet-handle {
+  width: 36px;
+  height: 4px;
+  margin: 0 auto 14px;
+  border-radius: 2px;
+  background: var(--border-strong);
+}
+
+.sheet-title {
+  margin: 0 0 10px;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--ink);
+}
+
+.sheet-options {
+  display: flex;
+  flex-direction: column;
+}
+
+.sheet-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 13px 2px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font-size: 15px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheet-option:last-child {
+  border-bottom: none;
+}
+
+.sheet-option-active {
+  font-weight: 600;
+}
+
+.sheet-option svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ink);
+}
+
+.sheet-clear {
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 2px 4px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--danger);
+  cursor: pointer;
+}
+
+/* ---------- Profile ------------------------------------------------- */
+
+.profile-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 4px 20px 24px;
+}
+
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 4px;
+}
+
+.profile-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.profile-name {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.profile-email {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.profile-details {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.profile-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-detail-row:last-child {
+  border-bottom: none;
+}
+
+.profile-detail-label {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.profile-detail-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: right;
+  max-width: 65%;
+}
+
+.profile-interests {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chip-static {
+  cursor: default;
+}
+
+.profile-menu {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.profile-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.profile-menu-item:last-child {
+  border-bottom: none;
+}
+
+.profile-menu-item svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-faint);
+}
+
+.profile-logout {
+  align-self: center;
+  margin-top: 4px;
+}
+
+.sheet-body {
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+.sheet-body p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.sheet-body p:last-child {
+  margin-bottom: 0;
+}
+
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.toggle input {
+  position: absolute;
+  inset: 0;
+  width: 44px;
+  height: 26px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.toggle-track {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  border: 1px solid var(--border-strong);
+  transition: background 0.15s ease;
+  pointer-events: none;
+}
+
+.toggle-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(17, 17, 20, 0.25);
+  transition: transform 0.15s ease;
+}
+
+.toggle input:checked + .toggle-track {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.toggle input:checked + .toggle-track .toggle-thumb {
+  transform: translateX(18px);
+}
+
+/* ---------- Full-screen edit / detail overlays -------------------------- */
+
+.edit-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  z-index: 60;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(16px, env(safe-area-inset-top)) 16px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.edit-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.edit-icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.edit-header-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.edit-save-btn {
+  border: none;
+  background: none;
+  padding: 4px 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.edit-save-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.edit-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
+}
+
+.edit-header-spacer {
+  width: 32px;
+  flex-shrink: 0;
+}
+
+.trip-detail-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 22px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.trip-detail-hero svg {
+  width: 56px;
+  height: 56px;
+}
+
+.trip-detail-title {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+.trip-detail-location {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.trip-detail-tags {
+  margin-bottom: 20px;
+}
+
+.trip-detail-stats {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.trip-detail-stat {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-alt);
+  text-align: center;
+}
+
+.trip-detail-stat-label {
+  margin: 0 0 4px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.trip-detail-stat-value {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow-wrap: break-word;
+}
+
+.trip-detail-highlights {
+  margin-top: 20px;
+}
+
+.trip-detail-highlights ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.trip-detail-highlights li {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+
+.trip-detail-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0;
+  margin-bottom: 20px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.trip-detail-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.trip-detail-author-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.trip-detail-author-label {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.trip-detail-description p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+/* ==========================================================================
+   Guide verification, trip lifecycle and admin review
+   ========================================================================== */
+
+.page-centered {
+  justify-content: center;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* ---------- Verified badge ------------------------------------------- */
+
+.verified-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  color: var(--ink);
+  vertical-align: middle;
+}
+
+.verified-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.verified-badge-sm svg {
+  width: 13px;
+  height: 13px;
+}
+
+.header-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.header-badge svg {
+  width: 13px;
+  height: 13px;
+}
+
+.certified-tag {
+  margin-left: 6px;
+  padding: 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* ---------- Status pills --------------------------------------------- */
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+  color: var(--ink-soft);
+  background: var(--surface);
+}
+
+.status-tone-success,
+.status-approved,
+.status-verified {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.status-tone-info {
+  border-color: var(--border-strong);
+  background: var(--surface-alt);
+  color: var(--ink);
+}
+
+.status-tone-warn,
+.status-pending {
+  border-color: var(--star);
+  color: #a86200;
+}
+
+.status-tone-danger,
+.status-rejected,
+.status-suspended {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.status-tone-muted {
+  color: var(--ink-faint);
+}
+
+/* ---------- Guide status cards --------------------------------------- */
+
+.status-card {
+  margin: 0 0 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.status-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.status-card-head svg {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: var(--ink);
+}
+
+.status-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.status-card-text {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.status-card-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.status-card-verified {
+  border-color: var(--ink);
+}
+
+.status-card-pending {
+  border-color: var(--star);
+}
+
+.status-card-rejected {
+  border-color: var(--danger);
+}
+
+.status-card-rejected .status-card-head svg {
+  color: var(--danger);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-alt);
+}
+
+.notice svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.notice p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+/* ---------- Buttons --------------------------------------------------- */
+
+.ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ghost-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.ghost-btn:active {
+  background: var(--surface-alt);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ghost-btn.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.decision-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.decision-row .submit,
+.decision-row .ghost-btn {
+  flex: 1;
+  margin: 0;
+}
+
+.checkbox-row {
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--ink);
+}
+
+/* ---------- Verification document upload ----------------------------- */
+
+.upload-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.upload-row:last-child {
+  border-bottom: none;
+}
+
+.upload-copy {
+  min-width: 0;
+}
+
+.upload-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.upload-optional {
+  margin-left: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.upload-filename {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.upload-btn {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-btn input[type="file"] {
+  display: none;
+}
+
+/* ---------- Trip form sections ---------------------------------------- */
+
+.form-section {
+  margin-top: 8px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.form-section-title {
+  margin: 0 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.itinerary-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.itinerary-fields {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.itinerary-day-badge {
+  flex-shrink: 0;
+  margin-top: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+
+.add-day-btn {
+  width: 100%;
+  margin-top: 4px;
+}
+
+/* ---------- Trip detail additions ------------------------------------- */
+
+.itinerary-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.itinerary-list li {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.itinerary-list li:last-child {
+  border-bottom: none;
+}
+
+.itinerary-list .itinerary-day-badge {
+  margin-top: 2px;
+}
+
+.itinerary-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.itinerary-text {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.list-excluded {
+  color: var(--ink-faint);
+}
+
+.guide-bio {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+
+.chip-accent {
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.deadline-note {
+  margin-top: 20px;
+}
+
+/* ---------- My Trips lifecycle controls -------------------------------- */
+
+.my-trip-item {
+  border-bottom: 1px solid var(--border);
+}
+
+.my-trip-item:last-child {
+  border-bottom: none;
+}
+
+.trip-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 4px 16px;
+}
+
+.trip-actions .ghost-btn {
+  padding: 7px 12px;
+  font-size: 12px;
+}
+
+.empty-state svg {
+  width: 34px;
+  height: 34px;
+  margin-bottom: 4px;
+  color: var(--ink-faint);
+}
+
+/* ---------- Admin review ----------------------------------------------- */
+
+.admin-view {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 20px 16px 32px;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-row:last-child {
+  border-bottom: none;
+}
+
+.admin-row-static {
+  cursor: default;
+}
+
+.admin-row-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-row-meta {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+.admin-row-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.admin-row-actions .ghost-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.document-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.document-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.document-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.document-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--surface-alt);
+}
+
+/* ==========================================================================
+   Auth screens — angled photo collage over a white content column
+   ========================================================================== */
+
+.auth-page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.auth-hero {
+  position: relative;
+  flex-shrink: 0;
+  height: clamp(210px, 34vh, 330px);
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+/* Sized off the longer axis so the rotated grid always covers the frame,
+   in portrait and in the full-height desktop column alike. */
+.auth-collage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(150%, 130vh);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  transform: translate(-50%, -50%) rotate(-14deg);
+}
+
+.collage-tile {
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--border);
+}
+
+/* Painted, not photographed — the app ships with no stock imagery. */
+.collage-tile-1 { background: linear-gradient(140deg, #1f2430, #3c4557); }
+.collage-tile-2 { background: linear-gradient(140deg, #e8eaf0, #c9cede); }
+.collage-tile-3 { background: linear-gradient(140deg, #7c5cfc, #a48bff); }
+.collage-tile-4 { background: linear-gradient(140deg, #f0846a, #f7ab8f); }
+.collage-tile-5 { background: linear-gradient(140deg, #111114, #2a2f3d); }
+.collage-tile-6 { background: linear-gradient(140deg, #dfe4fb, #b9c2f2); }
+.collage-tile-7 { background: linear-gradient(140deg, #4f7a68, #7aa891); }
+.collage-tile-8 { background: linear-gradient(140deg, #f5c76a, #f8dda2); }
+.collage-tile-9 { background: linear-gradient(140deg, #c9d2e4, #8f9db8); }
+
+.auth-hero-fade {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 42%;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 88%);
+}
+
+.auth-brand {
+  position: absolute;
+  top: max(18px, env(safe-area-inset-top));
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.brand-mark-auth {
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  border-radius: 9px;
+}
+
+.auth-brand .brand-name {
+  font-size: 15px;
+}
+
+.auth-body {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 4px 20px calc(28px + env(safe-area-inset-bottom));
+}
+
+.auth-content {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-heading {
+  margin-bottom: 26px;
+  text-align: center;
+}
+
+.auth-title {
+  margin: 0;
+  font-size: clamp(30px, 8.5vw, 42px);
+  font-weight: 700;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+  text-wrap: balance;
+}
+
+.auth-subtitle {
+  margin: 12px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-faint);
+  text-wrap: pretty;
+}
+
+/* Pill inputs and buttons are scoped to auth so the dense in-app forms
+   (trip composer, verification) keep their more compact rounded fields. */
+.auth-page .field input,
+.auth-page .field textarea {
+  border-color: transparent;
+  background: var(--surface-alt);
+}
+
+.auth-page .field input {
+  height: 54px;
+  padding: 0 20px;
+  border-radius: var(--radius-pill);
+}
+
+.auth-page .field textarea {
+  padding: 14px 18px;
+  border-radius: 22px;
+}
+
+.auth-page .field input:focus,
+.auth-page .field textarea:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px var(--violet-soft);
+}
+
+.auth-page .submit {
+  height: 56px;
+  margin-top: 10px;
+  border-radius: var(--radius-pill);
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.auth-page .google-btn {
+  height: 54px;
+  border-radius: var(--radius-pill);
+}
+
+.auth-page .chip {
+  padding: 9px 15px;
+}
+
+.switch-link {
+  color: var(--violet);
+  text-decoration: none;
+}
+
+.switch-link:hover {
+  text-decoration: underline;
+}
+
+/* From 900px the hero becomes a fixed side panel and the form sits beside it. */
+@media (min-width: 900px) {
+  .auth-page {
+    flex-direction: row;
+  }
+
+  .auth-hero {
+    position: sticky;
+    top: 0;
+    /* flex-start keeps the item from stretching to the (taller) form column,
+       which is what lets it stick while a long form scrolls past. */
+    align-self: flex-start;
+    width: 46%;
+    height: 100dvh;
+  }
+
+  .auth-hero-fade {
+    display: none;
+  }
+
+  .auth-body {
+    width: 54%;
+    min-height: 100dvh;
+    align-items: center;
+    padding: 56px;
+  }
+
+  .auth-heading {
+    text-align: left;
+  }
+
+  .auth-title {
+    font-size: clamp(38px, 3.4vw, 50px);
+  }
+}
+
+/* Short landscape phones: shrink the hero so the form stays reachable. */
+@media (max-height: 620px) and (max-width: 899px) {
+  .auth-hero {
+    height: 150px;
+  }
+
+  .auth-heading {
+    margin-bottom: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   Admin console — a separate shell from the traveler app
+   ========================================================================== */
+
+.console {
+  min-height: 100dvh;
+  background: var(--surface-alt);
+}
+
+.console-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: max(18px, env(safe-area-inset-top)) 20px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.console-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.console-title {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.console-subtitle {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.console-account {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.console-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.console-avatar.sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.console-account-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.console-account-role {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.console-nav {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 12px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+.console-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.console-tab {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.console-tab-active {
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.console-body {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 20px calc(40px + env(safe-area-inset-bottom));
+}
+
+.console-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.console-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* The verification queue is shared with the old in-app tab, so strip the
+   gutters it brings with it — the console body already provides them. */
+.console-body .admin-view,
+.console-body .section-title,
+.console-body .scroll-row {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.console-body .admin-view {
+  padding-top: 0;
+  padding-bottom: 0;
+  gap: 32px;
+}
+
+.console-section-title {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.console-section-hint {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.console-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid var(--ink);
+  border-radius: 16px;
+  background: var(--surface);
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.console-alert-cta {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---------- Stat cards ------------------------------------------------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.stat-card-emphasis {
+  border-color: var(--ink);
+}
+
+.stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.stat-value {
+  font-size: clamp(22px, 4vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+}
+
+.stat-value-danger {
+  color: var(--danger);
+}
+
+.stat-hint {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+/* ---------- Horizontal bars ------------------------------------------- */
+
+.bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.bar-label {
+  flex: 0 0 120px;
+  color: var(--ink-soft);
+}
+
+.bar-track {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+}
+
+.bar-value {
+  flex: 0 0 32px;
+  font-weight: 700;
+  text-align: right;
+}
+
+/* ---------- People table ----------------------------------------------- */
+
+.console-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+
+.console-search {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.console-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.console-table th {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--ink-faint);
+}
+
+.console-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.console-table tr:last-child td {
+  border-bottom: none;
+}
+
+.console-table .num {
+  text-align: right;
+}
+
+.table-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.table-name {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.table-email {
+  display: block;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.table-muted {
+  color: var(--ink-faint);
+}
+
+.role-tag {
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  color: var(--ink-soft);
+}
+
+.row-actions {
+  text-align: right;
+}
+
+.row-actions .ghost-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* ---------- Settings ---------------------------------------------------- */
+
+.setting-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.setting-row:last-child {
+  border-bottom: none;
+}
+
+.setting-copy {
+  min-width: 0;
+}
+
+.setting-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.rate-input {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.rate-input input {
+  width: 84px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  font: inherit;
+  font-size: 15px;
+  text-align: right;
+  color: var(--ink);
+  outline: none;
+}
+
+.rate-input input:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.rate-suffix {
+  font-size: 14px;
+  color: var(--ink-faint);
+}
+
+.save-note {
+  margin: 12px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.console-save {
+  width: auto;
+  min-width: 180px;
+  margin-top: 18px;
+  padding: 0 28px;
+}
+
+@media (min-width: 768px) {
+  .console-header,
+  .console-nav {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+
+  .console-body {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+/* ---------- Trip detail apply bar (mirrors the bottom nav pill) -------- */
+
+.has-apply-bar .edit-body {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
+.apply-bar {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: auto;
+  max-width: min(430px, calc(100% - 28px));
+  padding: 8px 8px 8px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+}
+
+.apply-price {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.apply-amount {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.apply-note {
+  font-size: 11px;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.apply-btn {
+  flex-shrink: 0;
+  height: 46px;
+  padding: 0 26px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.apply-btn:active {
+  transform: scale(0.97);
+}
+
+.apply-btn:disabled {
+  background: var(--surface-alt);
+  color: var(--ink-faint);
+  cursor: default;
+}
+
+/* ---------- Book trip form -------------------------------------------- */
+
+.book-summary {
+  margin-bottom: 4px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.book-trip-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.book-trip-meta {
+  margin: 5px 0 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.party-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.party-head .form-section-title {
+  margin-bottom: 0;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+}
+
+.stepper-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.stepper-value {
+  min-width: 26px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.party-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+}
+
+.party-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.party-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.party-tag {
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--violet-soft);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--violet);
+}
+
+.party-remove {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+  cursor: pointer;
+}
+
+.field select {
+  width: 100%;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-alt);
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  outline: none;
+  appearance: none;
+}
+
+.field select:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.price-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.price-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.price-total {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---------- Home: greeting, search, hero trip cards -------------------- */
+
+.greeting {
+  flex: 1;
+  min-width: 0;
+}
+
+.greeting-name {
+  margin: 0;
+  font-size: clamp(20px, 5.5vw, 24px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.greeting-sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+.greeting-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.greeting-verified {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: flex;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--violet);
+}
+
+.greeting-verified svg {
+  width: 13px;
+  height: 13px;
+}
+
+.home-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 20px 24px;
+}
+
+.search-bar-button {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  border-radius: var(--radius-pill);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.search-placeholder {
+  font-size: 15px;
+  color: var(--ink-faint);
+}
+
+.filter-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-alt);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.filter-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.filter-btn-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.filter-btn .pending-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  margin: 0;
+}
+
+.home-heading {
+  margin: 0 20px 14px;
+  font-size: clamp(18px, 5vw, 21px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.category-pills {
+  margin-bottom: 20px;
+}
+
+.pill {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.pill-active {
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font-weight: 600;
+}
+
+.hero-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 0 20px;
+}
+
+.hero-card {
+  position: relative;
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--surface-alt);
+  box-shadow: var(--shadow-md);
+}
+
+.hero-media {
+  position: relative;
+  height: clamp(230px, 42vh, 330px);
+  background: linear-gradient(150deg, #c9d2e4, #8f9db8);
+}
+
+.hero-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* No stock imagery ships with the app, so a coverless trip shows its
+   category mark rather than a broken or borrowed photo. */
+.hero-media-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero-media-fallback svg {
+  width: 56px;
+  height: 56px;
+}
+
+.hero-tag {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 6px 13px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* The detail panel floats over the bottom of the cover, as in the reference. */
+.hero-panel {
+  position: relative;
+  margin: -34px 10px 10px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.hero-destination {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.hero-title {
+  margin: 3px 0 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.hero-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.hero-rating svg {
+  width: 13px;
+  height: 13px;
+  color: var(--star);
+}
+
+.hero-seats {
+  margin-left: auto;
+}
+
+.hero-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 6px 6px 6px 22px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.hero-cta:active {
+  transform: scale(0.985);
+}
+
+.hero-cta-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.hero-cta-arrow svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---------- Guide roster: applicants and approvals --------------------- */
+
+.pending-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  background: var(--violet);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ghost-btn-accent {
+  border-color: var(--violet);
+  color: var(--violet);
+}
+
+.applicant-group {
+  margin-top: 24px;
+}
+
+.applicant-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.applicant-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.applicant-avatar {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.applicant-identity {
+  flex: 1;
+  min-width: 0;
+}
+
+.applicant-name {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.applicant-meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.applicant-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 0;
+}
+
+.applicant-facts dt {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.applicant-facts dd {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.applicant-facts a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.applicant-facts a:hover {
+  text-decoration: underline;
+}
+
+.applicant-party ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.applicant-party li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.applicant-party li:last-child {
+  border-bottom: none;
+}
+
+.party-person-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.party-person-meta {
+  font-size: 12px;
+  text-align: right;
+  color: var(--ink-faint);
+}
+
+.applicant-note p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.applicant-actions {
+  margin-top: 2px;
+}
+
+/* ---------- My Trips: attending vs. published listings ----------------- */
+
+.my-trips-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.segmented {
+  display: flex;
+  gap: 4px;
+  margin: 0 20px 20px;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--surface-alt);
+}
+
+.segment {
+  flex: 1;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.segment-active {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.section-count {
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+/* ==========================================================================
+   Welcome board — post-login bento screen, swiped up to dismiss
+   ========================================================================== */
+
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  overflow: hidden;
+  background: var(--surface-alt);
+  overscroll-behavior: contain;
+  touch-action: pan-x;
+  transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* While a finger is down the board tracks it 1:1, so no easing. */
+.welcome-dragging {
+  transition: none;
+}
+
+.welcome-leaving {
+  transform: translateY(-100%);
+}
+
+.welcome-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 460px;
+  height: 100%;
+  margin: 0 auto;
+  padding: max(28px, env(safe-area-inset-top)) 20px max(18px, env(safe-area-inset-bottom));
+}
+
+.welcome-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 4px;
+}
+
+.welcome-date {
+  margin: 0;
+  font-size: clamp(24px, 6.6vw, 31px);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.date-strong {
+  font-weight: 800;
+}
+
+.date-light {
+  font-weight: 400;
+  color: var(--ink-soft);
+}
+
+.welcome-greeting {
+  margin: 10px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.welcome-skip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  flex-shrink: 0;
+  width: 62px;
+  height: 62px;
+  border: none;
+  border-radius: 20px;
+  background: #dfe4fb;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.welcome-skip svg {
+  width: 19px;
+  height: 19px;
+}
+
+/* The board absorbs whatever height is left over instead of using fixed card
+   sizes, so a short landscape phone shrinks it rather than clipping the hint. */
+.welcome-bento {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 460px;
+  gap: 12px;
+}
+
+.bento-col {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bento-card {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+/* Staggering the two columns (tall+short vs short+tall) gives the offset
+   masonry look while both columns still total the same height. Ratios rather
+   than pixels keep that stagger intact at every viewport height. */
+.bento-tall {
+  flex: 1.45 1 0;
+  min-height: 0;
+}
+
+.bento-short {
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.bento-photo {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px;
+  background: #c9d2e4;
+}
+
+.bento-accent {
+  background: #f0846a;
+}
+
+.bento-photo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bento-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bento-pill svg {
+  width: 12px;
+  height: 12px;
+  color: var(--star);
+}
+
+.bento-photo-title {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  left: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #ffffff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+
+.bento-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 16px;
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.bento-stat-value {
+  font-size: clamp(26px, 8vw, 34px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.bento-stat-label {
+  margin-top: 6px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.bento-note {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+}
+
+.bento-note-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.bento-note-label svg {
+  width: 13px;
+  height: 13px;
+  color: var(--ink);
+}
+
+.bento-note-text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.bento-wide {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 18px 14px 14px;
+}
+
+.bento-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: #dfe4fb;
+  color: var(--ink);
+}
+
+.bento-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bento-fact {
+  min-width: 0;
+}
+
+.bento-fact-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.bento-fact-text {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+.welcome-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-top: auto;
+  padding: 10px 0 2px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.welcome-hint svg {
+  width: 18px;
+  height: 18px;
+  animation: hint-nudge 1.6s ease-in-out infinite;
+}
+
+@keyframes hint-nudge {
+  0%,
+  100% {
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+/* ==========================================================================
+   Travel stories (blogs)
+   ========================================================================== */
+
+.blogs-section {
+  margin-top: 8px;
+}
+
+.blogs-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 20px 14px;
+}
+
+.blogs-section-header .home-heading {
+  margin: 0;
+}
+
+.blogs-section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.blog-scroll-row {
+  padding-bottom: 4px;
+}
+
+.blog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+
+.blog-grid .blog-card {
+  width: 100%;
+}
+
+.blog-card {
+  width: 220px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.blog-card-media {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  background: var(--surface-alt);
+}
+
+.blog-card-media img,
+.blog-card-media video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.blog-card-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+.blog-card-body {
+  padding: 12px 14px 14px;
+}
+
+.blog-card-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blog-card-location {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.blog-card-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.blog-detail-media {
+  margin: 0 0 16px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+
+.blog-detail-media img,
+.blog-detail-media video {
+  width: 100%;
+  max-height: 360px;
+  object-fit: cover;
+  display: block;
+}
+
+.blog-detail-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.blog-detail-date {
+  margin-left: auto;
+  font-weight: 500;
+  color: var(--ink-faint);
+}
+
+.blog-detail-content {
+  margin-top: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+
+.blog-admin-thumb {
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.blog-admin-thumb img,
+.blog-admin-thumb video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Roomier board once there is vertical space to spend. */
+@media (min-width: 768px) {
+  .welcome-inner {
+    max-width: 560px;
+    gap: 14px;
+  }
+
+  .welcome-bento,
+  .bento-col {
+    gap: 14px;
+  }
+}
+
+/* Short landscape phones: trim the chrome so the board still breathes. */
+@media (max-height: 640px) {
+  .welcome-inner {
+    gap: 9px;
+    padding-top: max(14px, env(safe-area-inset-top));
+  }
+
+  .welcome-bento,
+  .bento-col {
+    gap: 9px;
+  }
+
+  .welcome-date {
+    font-size: 21px;
+  }
+
+  .welcome-greeting {
+    margin-top: 6px;
+  }
+
+  .bento-wide {
+    padding: 10px 14px;
+  }
+
+  .welcome-hint {
+    padding-top: 4px;
+  }
+}
+
+/* ==========================================================================
+   Responsive app shell — floating nav, wider columns, grid trip lists
+   ========================================================================== */
+
+.bottom-nav {
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: auto;
+  max-width: min(430px, calc(100% - 28px));
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-float);
+}
+
+.nav-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+}
+
+.nav-post {
+  width: 46px;
+  height: 46px;
+  margin-top: 0;
+  border-color: var(--violet);
+  background: var(--violet);
+}
+
+.app-content {
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+
+/* Tablets: the shell widens and card lists become two columns. */
+@media (min-width: 768px) {
+  .app-shell {
+    max-width: 780px;
+    border-left: none;
+    border-right: none;
+  }
+
+  .app-header {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .section-title {
+    padding: 0 28px;
+  }
+
+  .trip-list,
+  .hero-list,
+  .scroll-row {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .hero-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .search-bar,
+  .segmented,
+  .home-search,
+  .home-heading {
+    margin-inline: 28px;
+  }
+
+  .trip-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .my-trip-item {
+    border-bottom: none;
+  }
+
+  .admin-view {
+    padding-left: 28px;
+    padding-right: 28px;
+  }
+
+  .edit-header,
+  .edit-body {
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .document-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Desktop: three columns, and the trip carousel gets room to breathe. */
+@media (min-width: 1180px) {
+  .app-shell {
+    max-width: 1120px;
+  }
+
+  .app-header,
+  .section-title,
+  .trip-list,
+  .hero-list,
+  .scroll-row,
+  .admin-view {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+
+  .hero-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .search-bar,
+  .segmented,
+  .home-search,
+  .home-heading {
+    margin-inline: 40px;
+  }
+
+  .trip-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Small phones: tighten the horizontal rhythm. */
+@media (max-width: 360px) {
+  .auth-body {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .trip-list,
+  .hero-list,
+  .section-title,
+  .scroll-row {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .home-search,
+  .home-heading {
+    margin-inline: 16px;
+  }
+
+  .search-bar,
+  .segmented {
+    margin-inline: 16px;
+  }
+
+  .bottom-nav {
+    gap: 2px;
+    padding: 7px 9px;
+  }
+
+  .nav-btn,
+  .nav-post {
+    width: 42px;
+    height: 42px;
+  }
+}
