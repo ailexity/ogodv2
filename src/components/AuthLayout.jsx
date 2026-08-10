@@ -1,22 +1,13 @@
 /**
- * Shared shell for the signed-out screens: an angled photo collage over a
- * white content column on phones, splitting into two columns from 900px up.
+ * Shared shell for the signed-out screens: a mountain photo over a white
+ * content column on phones, splitting into two columns from 900px up.
  */
-
-// Nine tiles fill the rotated grid at every breakpoint without gaps showing.
-// They are painted in CSS rather than fetched, so the app carries no stock
-// photography and no external image dependency.
-const COLLAGE_TILES = Array.from({ length: 9 }, (_, i) => i + 1)
 
 export default function AuthLayout({ title, subtitle, children, footer }) {
   return (
     <div className="auth-page">
       <div className="auth-hero">
-        <div className="auth-collage" aria-hidden="true">
-          {COLLAGE_TILES.map((tile) => (
-            <span key={tile} className={`collage-tile collage-tile-${tile}`} />
-          ))}
-        </div>
+        <div className="auth-hero-image" aria-hidden="true" />
         <div className="auth-hero-fade" aria-hidden="true" />
         <div className="auth-brand">
           <span className="brand-mark brand-mark-auth">O</span>

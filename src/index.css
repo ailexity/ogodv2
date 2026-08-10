@@ -1748,7 +1748,7 @@ body {
 }
 
 /* ==========================================================================
-   Auth screens — angled photo collage over a white content column
+   Auth screens — mountain photo hero over a white content column
    ========================================================================== */
 
 .auth-page {
@@ -1766,36 +1766,13 @@ body {
   background: var(--surface-alt);
 }
 
-/* Sized off the longer axis so the rotated grid always covers the frame,
-   in portrait and in the full-height desktop column alike. */
-.auth-collage {
+.auth-hero-image {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  width: max(150%, 130vh);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  transform: translate(-50%, -50%) rotate(-14deg);
+  inset: 0;
+  background-image: url('https://loremflickr.com/1200/1600/mountains');
+  background-size: cover;
+  background-position: center;
 }
-
-.collage-tile {
-  aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: 18px;
-  background: var(--border);
-}
-
-/* Painted, not photographed — the app ships with no stock imagery. */
-.collage-tile-1 { background: linear-gradient(140deg, #1f2430, #3c4557); }
-.collage-tile-2 { background: linear-gradient(140deg, #e8eaf0, #c9cede); }
-.collage-tile-3 { background: linear-gradient(140deg, #7c5cfc, #a48bff); }
-.collage-tile-4 { background: linear-gradient(140deg, #f0846a, #f7ab8f); }
-.collage-tile-5 { background: linear-gradient(140deg, #111114, #2a2f3d); }
-.collage-tile-6 { background: linear-gradient(140deg, #dfe4fb, #b9c2f2); }
-.collage-tile-7 { background: linear-gradient(140deg, #4f7a68, #7aa891); }
-.collage-tile-8 { background: linear-gradient(140deg, #f5c76a, #f8dda2); }
-.collage-tile-9 { background: linear-gradient(140deg, #c9d2e4, #8f9db8); }
 
 .auth-hero-fade {
   position: absolute;
