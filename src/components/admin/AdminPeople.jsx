@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 import { getInitials } from '../TripDetail.jsx'
 import { CloseIcon, SearchIcon, VerifiedIcon } from '../icons.jsx'
+import PasswordInput from '../PasswordInput.jsx'
 
 const ROLE_FILTERS = [
   { key: '', label: 'Everyone' },
@@ -284,159 +285,174 @@ function PersonEditor({ person, isSelf, onClose, onChanged, onDeleted }) {
   }
 
   return (
-    <div className="edit-overlay">
-      <header className="edit-header">
-        <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Close">
-          <CloseIcon />
-        </button>
-        <h2 className="edit-header-title">Manage account</h2>
-        <span className="edit-header-spacer" />
-      </header>
+    <>
+      <div className="admin-drawer-backdrop" onClick={onClose} />
+      <div className="edit-overlay admin-drawer" role="dialog" aria-label={`Manage ${person.name}`}>
+        <header className="edit-header">
+          <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Close">
+            <CloseIcon />
+          </button>
+          <h2 className="edit-header-title">Manage account</h2>
+          <span className="edit-header-spacer" />
+        </header>
 
-      <div className="edit-body">
-        {isSelf && (
-          <div className="notice">
-            <p>This is your own account — role, disable and delete actions are turned off.</p>
+        <div className="edit-body manage-body">
+          <div className="manage-who">
+            <h3 className="trip-detail-title">{person.name}</h3>
+            <p className="trip-detail-location">{person.email}</p>
           </div>
-        )}
 
-        <h3 className="trip-detail-title">{person.name}</h3>
-        <p className="trip-detail-location">{person.email}</p>
-
-        <label className="field">
-          <span className="field-label">Name</span>
-          <input
-            type="text"
-            value={profile.name}
-            onChange={(e) => updateProfileField('name', e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Email</span>
-          <input
-            type="email"
-            value={profile.email}
-            onChange={(e) => updateProfileField('email', e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Phone</span>
-          <input
-            type="text"
-            value={profile.phone}
-            onChange={(e) => updateProfileField('phone', e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Address</span>
-          <input
-            type="text"
-            value={profile.address}
-            onChange={(e) => updateProfileField('address', e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Age</span>
-          <input
-            type="number"
-            min="0"
-            max="120"
-            value={profile.age}
-            onChange={(e) => updateProfileField('age', e.target.value)}
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Bio</span>
-          <textarea
-            rows={3}
-            value={profile.bio}
-            onChange={(e) => updateProfileField('bio', e.target.value)}
-          />
-        </label>
-
-        <button type="button" className="submit" onClick={saveProfile} disabled={busy}>
-          Save profile
-        </button>
-
-        <label className="field">
-          <span className="field-label">Role</span>
-          <select value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
-            <option value="traveler">Traveler</option>
-            <option value="guide">Guide</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
-        <button
-          type="button"
-          className="ghost-btn"
-          onClick={saveRole}
-          disabled={busy || isSelf || role === person.role}
-        >
-          Update role
-        </button>
-
-        <label className="field">
-          <span className="field-label">Set new password</span>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => {
-              setNewPassword(e.target.value)
-              setError('')
-            }}
-            placeholder="New password"
-            autoComplete="new-password"
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">Confirm password</span>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => {
-              setConfirmPassword(e.target.value)
-              setError('')
-            }}
-            placeholder="Re-enter new password"
-            autoComplete="new-password"
-          />
-        </label>
-        <button type="button" className="ghost-btn" onClick={savePassword} disabled={busy}>
-          Reset password
-        </button>
-
-        {error && <p className="form-error">{error}</p>}
-        {notice && <p className="save-note">{notice}</p>}
-
-        <div className="decision-row">
-          {!person.emailVerified && (
-            <button type="button" className="ghost-btn" onClick={confirmEmail} disabled={busy}>
-              Mark email confirmed
-            </button>
+          {isSelf && (
+            <div className="notice">
+              <p>This is your own account — role, disable and delete actions are turned off.</p>
+            </div>
           )}
-          <button
-            type="button"
-            className="ghost-btn"
-            onClick={toggleDisabled}
-            disabled={busy || isSelf}
-          >
-            {person.disabled ? 'Re-enable account' : 'Disable account'}
-          </button>
-          <button
-            type="button"
-            className="ghost-btn danger"
-            onClick={deleteAccount}
-            disabled={busy || isSelf}
-          >
-            {confirmingDelete ? 'Confirm delete' : 'Delete account'}
-          </button>
+          {error && <p className="form-error">{error}</p>}
+          {notice && <p className="save-note">{notice}</p>}
+
+          <section className="form-section">
+            <h3 className="form-section-title">Profile</h3>
+            <div className="field-row">
+              <label className="field">
+                <span className="field-label">Name</span>
+                <input
+                  type="text"
+                  value={profile.name}
+                  onChange={(e) => updateProfileField('name', e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span className="field-label">Age</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={profile.age}
+                  onChange={(e) => updateProfileField('age', e.target.value)}
+                />
+              </label>
+            </div>
+            <label className="field">
+              <span className="field-label">Email</span>
+              <input
+                type="email"
+                value={profile.email}
+                onChange={(e) => updateProfileField('email', e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Phone</span>
+              <input
+                type="text"
+                value={profile.phone}
+                onChange={(e) => updateProfileField('phone', e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Address</span>
+              <input
+                type="text"
+                value={profile.address}
+                onChange={(e) => updateProfileField('address', e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Bio</span>
+              <textarea
+                rows={3}
+                value={profile.bio}
+                onChange={(e) => updateProfileField('bio', e.target.value)}
+              />
+            </label>
+            <button type="button" className="submit" onClick={saveProfile} disabled={busy}>
+              Save profile
+            </button>
+          </section>
+
+          <section className="form-section">
+            <h3 className="form-section-title">Role</h3>
+            <div className="manage-inline">
+              <label className="field">
+                <span className="field-label">Account type</span>
+                <select value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
+                  <option value="traveler">Traveller</option>
+                  <option value="guide">Guide</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={saveRole}
+                disabled={busy || isSelf || role === person.role}
+              >
+                Update role
+              </button>
+            </div>
+          </section>
+
+          <section className="form-section">
+            <h3 className="form-section-title">Reset password</h3>
+            <p className="field-hint manage-hint">
+              Sets a new password and signs this person out everywhere. Tell them the new one.
+            </p>
+            <label className="field">
+              <span className="field-label">New password</span>
+              <PasswordInput
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value)
+                  setError('')
+                }}
+                placeholder="At least 8 characters, a letter and a number"
+                autoComplete="new-password"
+              />
+            </label>
+            <label className="field">
+              <span className="field-label">Confirm password</span>
+              <PasswordInput
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value)
+                  setError('')
+                }}
+                placeholder="Re-enter new password"
+                autoComplete="new-password"
+              />
+            </label>
+            <button type="button" className="ghost-btn manage-action" onClick={savePassword} disabled={busy}>
+              Reset password
+            </button>
+          </section>
+
+          <section className="form-section">
+            <h3 className="form-section-title">Account</h3>
+            <div className="manage-actions">
+              {!person.emailVerified && (
+                <button type="button" className="ghost-btn" onClick={confirmEmail} disabled={busy}>
+                  Mark email confirmed
+                </button>
+              )}
+              <button
+                type="button"
+                className="ghost-btn"
+                onClick={toggleDisabled}
+                disabled={busy || isSelf}
+              >
+                {person.disabled ? 'Re-enable account' : 'Disable account'}
+              </button>
+              <button
+                type="button"
+                className="ghost-btn danger"
+                onClick={deleteAccount}
+                disabled={busy || isSelf}
+              >
+                {confirmingDelete ? 'Confirm delete' : 'Delete account'}
+              </button>
+            </div>
+          </section>
         </div>
       </div>
-    </div>
+    </>
   )
 }

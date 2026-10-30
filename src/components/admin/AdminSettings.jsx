@@ -1,91 +1,16 @@
 import { useEffect, useState } from 'react'
-import { api, isRemembered, setToken } from '../../api/client.js'
-
-const EMPTY_PASSWORDS = { current: '', next: '', confirm: '' }
+import { api } from '../../api/client.js'
+import ChangePasswordForm from '../ChangePasswordForm.jsx'
 
 /** The signed-in admin's own password. Other devices are signed out; this one stays in. */
 function ChangePassword({ user }) {
-  const [form, setForm] = useState(EMPTY_PASSWORDS)
-  const [error, setError] = useState('')
-  const [done, setDone] = useState(false)
-  const [saving, setSaving] = useState(false)
-
-  function update(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-    setError('')
-    setDone(false)
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (form.next !== form.confirm) return setError('The new passwords don’t match')
-
-    setSaving(true)
-    setError('')
-    try {
-      const remember = isRemembered()
-      const { token } = await api.changePassword(form.current, form.next, remember)
-      setToken(token, { remember })
-      setForm(EMPTY_PASSWORDS)
-      setDone(true)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <section>
       <h2 className="console-section-title">Change password</h2>
       <p className="console-section-hint">
         For {user?.email}. Other devices signed in to this account are signed out.
       </p>
-
-      <form className="form password-form" onSubmit={handleSubmit}>
-        <label className="field">
-          <span className="field-label">Current password</span>
-          <input
-            type="password"
-            name="current"
-            value={form.current}
-            onChange={update}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">New password</span>
-          <input
-            type="password"
-            name="next"
-            value={form.next}
-            onChange={update}
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
-          <span className="form-hint">At least 8 characters, with a letter and a number.</span>
-        </label>
-        <label className="field">
-          <span className="field-label">Confirm new password</span>
-          <input
-            type="password"
-            name="confirm"
-            value={form.confirm}
-            onChange={update}
-            autoComplete="new-password"
-            required
-          />
-        </label>
-
-        {error && <p className="form-error">{error}</p>}
-        {done && <p className="save-note">Password changed.</p>}
-
-        <button type="submit" className="submit console-save" disabled={saving}>
-          {saving ? 'Changing…' : 'Change password'}
-        </button>
-      </form>
+      <ChangePasswordForm user={user} className="password-form" />
     </section>
   )
 }

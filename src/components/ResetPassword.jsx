@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api/client.js'
 import AuthLayout from './AuthLayout.jsx'
+import PasswordInput from './PasswordInput.jsx'
 
 /** Opened from the emailed reset link (`/?reset=<token>`). */
 export default function ResetPassword({ token, onDone, onRequestNewLink }) {
@@ -55,8 +56,7 @@ export default function ResetPassword({ token, onDone, onRequestNewLink }) {
       <form className="form" onSubmit={handleSubmit}>
         <label className="field">
           <span className="field-label">New password</span>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={clearError(setPassword)}
             placeholder="Enter new password"
@@ -69,8 +69,7 @@ export default function ResetPassword({ token, onDone, onRequestNewLink }) {
 
         <label className="field">
           <span className="field-label">Confirm password</span>
-          <input
-            type="password"
+          <PasswordInput
             value={confirmPassword}
             onChange={clearError(setConfirmPassword)}
             placeholder="Re-enter new password"

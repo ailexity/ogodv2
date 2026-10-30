@@ -185,8 +185,11 @@ export const api = {
 
   conversations: () => request('GET', '/messages'),
   unreadMessages: () => request('GET', '/messages/unread'),
-  startConversation: (userId, tripId) =>
-    request('POST', '/messages', { body: { userId, tripId } }),
+  startConversation: (userId, tripId, blogId) =>
+    request('POST', '/messages', { body: { userId, tripId, blogId } }),
+  wishlist: () => request('GET', '/wishlist'),
+  saveTrip: (tripId) => request('POST', `/wishlist/${tripId}`),
+  unsaveTrip: (tripId) => request('DELETE', `/wishlist/${tripId}`),
   conversation: (id, after) => request('GET', `/messages/${id}${after ? `?after=${after}` : ''}`),
   sendMessage: (id, form) => request('POST', `/messages/${id}`, { form }),
 

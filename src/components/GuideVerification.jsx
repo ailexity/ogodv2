@@ -36,6 +36,30 @@ const DOCUMENTS = [
   },
 ]
 
+function UploadRow({ doc, file, onChange }) {
+  return (
+    <div className="upload-row">
+      <div className="upload-copy">
+        <span className="upload-label">
+          {doc.label}
+          {!doc.required && <span className="upload-optional">Optional</span>}
+        </span>
+        <span className="field-hint">{doc.hint}</span>
+        {file && <span className="upload-filename">{file.name}</span>}
+      </div>
+      <label className={`upload-btn${file ? ' upload-btn-done' : ''}`}>
+        {file ? 'Replace' : 'Upload'}
+        <input
+          type="file"
+          name={doc.name}
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          onChange={onChange}
+        />
+      </label>
+    </div>
+  )
+}
+
 function formatRupees(amount) {
   return `₹${Number(amount ?? 0).toLocaleString('en-IN')}`
 }
@@ -200,7 +224,7 @@ export default function GuideVerification({ onClose, onSubmitted }) {
               name="areas"
               value={form.areas}
               onChange={handleChange}
-              placeholder="e.g. Kyoto, Osaka, Nara"
+              placeholder="e.g. Dharamshala, Manali, Shimla"
             />
             <span className="field-hint">Separate each area with a comma.</span>
           </label>
@@ -213,7 +237,7 @@ export default function GuideVerification({ onClose, onSubmitted }) {
                 name="licenseNumber"
                 value={form.licenseNumber}
                 onChange={handleChange}
-                placeholder="If required in your region"
+                placeholder="If required"
               />
             </label>
 
@@ -235,48 +259,49 @@ export default function GuideVerification({ onClose, onSubmitted }) {
               name="licenseRegion"
               value={form.licenseRegion}
               onChange={handleChange}
-              placeholder="e.g. Kyoto Prefecture, Japan"
+              placeholder="e.g. Himachal Pradesh"
             />
           </label>
 
-          <div className="field">
-            <span className="field-label">Documents</span>
-            <SubscriptionNotice />
-            {DOCUMENTS.map((doc) => (
-              <div key={doc.name} className="upload-row">
-                <div className="upload-copy">
-                  <span className="upload-label">
-                    {doc.label}
-                    {!doc.required && <span className="upload-optional">Optional</span>}
-                  </span>
-                  <span className="field-hint">{doc.hint}</span>
-                  {files[doc.name] && <span className="upload-filename">{files[doc.name].name}</span>}
-                </div>
-                <label className="upload-btn">
-                  {files[doc.name] ? 'Replace' : 'Upload'}
-                  <input
-                    type="file"
-                    name={doc.name}
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={handleFileChange}
-                  />
-                </label>
-              </div>
-            ))}
-          </div>
-
           <label className="field">
-            <span className="field-label">Sample itinerary</span>
+            <span className="field-label">
+              Sample itinerary <span className="upload-optional">Optional</span>
+            </span>
             <textarea
               name="sampleItinerary"
               value={form.sampleItinerary}
               onChange={handleChange}
               rows={4}
-              placeholder="Optional — submit a sample day-by-day itinerary to be considered for the Certified badge."
+              placeholder="A sample day-by-day plan. Helps you get the Certified badge."
             />
           </label>
 
+          <div className="field">
+            <span className="field-label">Documents</span>
+            <div className="upload-list">
+              {DOCUMENTS.filter((doc) => doc.name !== 'feeReceipt').map((doc) => (
+                <UploadRow key={doc.name} doc={doc} file={files[doc.name]} onChange={handleFileChange} />
+              ))}
+            </div>
+          </div>
+
+          <div className="field">
+            <span className="field-label">Yearly subscription</span>
+            <SubscriptionNotice />
+            <div className="upload-list">
+              <UploadRow
+                doc={DOCUMENTS.find((doc) => doc.name === 'feeReceipt')}
+                file={files.feeReceipt}
+                onChange={handleFileChange}
+              />
+            </div>
+          </div>
+
           {error && <p className="form-error">{error}</p>}
+
+          <button type="submit" className="submit" disabled={submitting}>
+            {submitting ? 'Sending…' : 'Submit application'}
+          </button>
         </form>
       </div>
     </div>

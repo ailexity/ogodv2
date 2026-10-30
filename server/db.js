@@ -261,6 +261,18 @@ db.exec(`
 // are about, so the chat can show booking and ticket cards.
 ensureColumn('messages', 'kind', "TEXT NOT NULL DEFAULT 'text'")
 ensureColumn('messages', 'booking_id', 'INTEGER REFERENCES bookings(id) ON DELETE SET NULL')
+// A chat started from a story keeps the story it is about, like trip_id for trips.
+ensureColumn('conversations', 'blog_id', 'INTEGER REFERENCES blogs(id) ON DELETE SET NULL')
+
+db.exec(`
+  -- Trips a person has saved with the heart on the trip page.
+  CREATE TABLE IF NOT EXISTS wishlist (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    trip_id    INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, trip_id)
+  );
+`)
 
 /** Guards the admin People screen from locking the platform out of its own console. */
 export function isLastEnabledAdmin(userId) {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api/client.js'
 import AuthLayout from './AuthLayout.jsx'
 import GoogleSignIn from './GoogleSignIn.jsx'
+import PasswordInput from './PasswordInput.jsx'
 
 export default function Login({
   notice,
@@ -73,8 +74,7 @@ export default function Login({
 
         <label className="field">
           <span className="field-label">Password</span>
-          <input
-            type="password"
+          <PasswordInput
             name="password"
             value={form.password}
             onChange={handleChange}

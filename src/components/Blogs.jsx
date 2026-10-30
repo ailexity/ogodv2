@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client.js'
 import { getInitials } from './TripDetail.jsx'
-import { CloseIcon, ThumbDownIcon, ThumbUpIcon, VerifiedIcon } from './icons.jsx'
+import {
+  CloseIcon,
+  ImageIcon,
+  MessageIcon,
+  ThumbDownIcon,
+  ThumbUpIcon,
+  VerifiedIcon,
+} from './icons.jsx'
 import { timeAgo } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
 
@@ -162,6 +169,7 @@ export function BlogDetailOverlay({
   onDeleted,
   onVoted,
   onRequireAuth,
+  onMessageAuthor,
 }) {
   const [blog, setBlog] = useState(initialBlog)
   const [error, setError] = useState('')
@@ -218,6 +226,13 @@ export function BlogDetailOverlay({
           <span className="blog-detail-date">{timeAgo(blog.createdAt, now)}</span>
         </p>
 
+        {onMessageAuthor && currentUser?.id !== blog.author.id && (
+          <button type="button" className="ghost-btn blog-message" onClick={() => onMessageAuthor(blog)}>
+            <MessageIcon />
+            Message {blog.author.name.split(' ')[0]}
+          </button>
+        )}
+
         <p className="blog-detail-content">{blog.content}</p>
 
         <BlogVotes
@@ -243,6 +258,8 @@ export function BlogDetailOverlay({
 }
 
 /** The compose form — open to any signed-in user, with an optional photo or video. */
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024
+
 export function BlogComposer({ onClose, onPosted }) {
   const [title, setTitle] = useState('')
   const [location, setLocation] = useState('')
@@ -250,6 +267,17 @@ export function BlogComposer({ onClose, onPosted }) {
   const [file, setFile] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
+  useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl])
+
+  function pickFile(e) {
+    const picked = e.target.files?.[0]
+    e.target.value = ''
+    if (!picked) return
+    if (picked.size > MAX_MEDIA_BYTES) return setError('Photos and videos must be 25 MB or smaller')
+    setError('')
+    setFile(picked)
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -326,16 +354,45 @@ export function BlogComposer({ onClose, onPosted }) {
             />
           </label>
 
-          <label className="field">
-            <span className="field-label">Photo or video (optional)</span>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-          </label>
+          <div className="field">
+            <span className="field-label">
+              Photo or video <span className="upload-optional">Optional</span>
+            </span>
+            {file ? (
+              <div className="media-preview">
+                {file.type.startsWith('video/') ? (
+                  <video src={previewUrl} controls muted playsInline />
+                ) : (
+                  <img src={previewUrl} alt="Selected photo" />
+                )}
+                <button type="button" className="media-remove" onClick={() => setFile(null)}>
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className="media-picker">
+                <span className="media-picker-icon">
+                  <ImageIcon />
+                </span>
+                <span className="media-picker-text">
+                  <strong>Add a photo or video</strong>
+                  <span>JPG, PNG, WEBP, MP4, WEBM or MOV · up to 25 MB</span>
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+                  hidden
+                  onChange={pickFile}
+                />
+              </label>
+            )}
+          </div>
 
           {error && <p className="form-error">{error}</p>}
+
+          <button type="submit" className="submit" disabled={submitting}>
+            {submitting ? 'Posting…' : 'Post story'}
+          </button>
         </form>
       </div>
     </div>

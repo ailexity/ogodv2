@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client.js'
 import { TRIP_STATUS, categoryImage } from '../data/categories.js'
-import { ChevronLeftIcon, MessageIcon, StarIcon, VerifiedIcon } from './icons.jsx'
+import { ChevronLeftIcon, HeartIcon, MessageIcon, StarIcon, VerifiedIcon } from './icons.jsx'
 import {
   beforeTripStarts,
   canBookNow,
@@ -209,6 +209,8 @@ export default function TripDetail({
   onApply,
   onMessageGuide,
   onCancelBooking,
+  saved = false,
+  onToggleSave,
   showStatus,
 }) {
   const now = useNow()
@@ -246,7 +248,19 @@ export default function TripDetail({
           <ChevronLeftIcon />
         </button>
         <h2 className="edit-header-title">Trip details</h2>
-        <span className="edit-header-spacer" />
+        {onToggleSave ? (
+          <button
+            type="button"
+            className={`edit-icon-btn save-btn${saved ? ' save-btn-on' : ''}`}
+            onClick={() => onToggleSave(trip)}
+            aria-pressed={saved}
+            aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+          >
+            <HeartIcon filled={saved} />
+          </button>
+        ) : (
+          <span className="edit-header-spacer" />
+        )}
       </header>
 
       <div className="edit-body trip-detail-body" ref={bodyRef}>

@@ -24,6 +24,11 @@ export default function WebSite({ user, onSignIn, onOpenApp, onLogout }) {
     else chat.openChatWith(trip.guide.id, trip.id)
   }
 
+  function messageAuthor(blog) {
+    if (!user) onSignIn('login')
+    else chat.openChatWith(blog.author.id, null, blog.id)
+  }
+
   // Pages that need an account fall back to the home page when signed out.
   useEffect(() => {
     if (route.name === 'my-trips' && !user) navigate('/')
@@ -42,9 +47,17 @@ export default function WebSite({ user, onSignIn, onOpenApp, onLogout }) {
       />
 
       <main className="web-main">
-        {route.name === 'browse' && <WebBrowse user={user} onSignIn={onSignIn} />}
+        {route.name === 'browse' && (
+          <WebBrowse user={user} onSignIn={onSignIn} onMessageAuthor={messageAuthor} />
+        )}
         {route.name === 'trip' && (
-          <WebTripPage key={route.tripId} tripId={route.tripId} user={user} onMessageGuide={messageGuide} />
+          <WebTripPage
+            key={route.tripId}
+            tripId={route.tripId}
+            user={user}
+            onMessageGuide={messageGuide}
+            onSignIn={onSignIn}
+          />
         )}
         {route.name === 'checkout' && (
           <WebCheckout

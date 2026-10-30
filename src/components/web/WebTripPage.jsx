@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 import { BOOKING_STATUS } from '../../data/categories.js'
 import { RatingBadge, TripCover, formatMoney, getInitials } from '../TripDetail.jsx'
-import { CheckIcon, ChevronLeftIcon, CloseIcon, MessageIcon, VerifiedIcon } from '../icons.jsx'
+import { CheckIcon, ChevronLeftIcon, CloseIcon, HeartIcon, MessageIcon, VerifiedIcon } from '../icons.jsx'
 import PriceSummary, { useQuote } from './PriceSummary.jsx'
 import { formatDays, navigate } from './route.js'
 import { cancelBookingWithConfirm } from '../cancelBooking.js'
@@ -16,7 +16,8 @@ import {
 } from '../../data/dates.js'
 import { useNow } from '../../hooks/useNow.js'
 
-export default function WebTripPage({ tripId, user, onMessageGuide }) {
+export default function WebTripPage({ tripId, user, onMessageGuide, onSignIn }) {
+  const [saved, setSaved] = useState(false)
   const [trip, setTrip] = useState(null)
   const [booking, setBooking] = useState(null)
   const [error, setError] = useState('')
@@ -40,6 +41,26 @@ export default function WebTripPage({ tripId, user, onMessageGuide }) {
       )
       .catch(() => setBooking(null))
   }, [tripId, user, reloadKey])
+
+  useEffect(() => {
+    if (!user) return setSaved(false)
+    api
+      .wishlist()
+      .then(({ trips }) => setSaved(trips.some((t) => t.id === tripId)))
+      .catch(() => {})
+  }, [tripId, user])
+
+  async function toggleSave() {
+    if (!user) return onSignIn('login')
+    const next = !saved
+    setSaved(next)
+    try {
+      if (next) await api.saveTrip(tripId)
+      else await api.unsaveTrip(tripId)
+    } catch {
+      setSaved(!next)
+    }
+  }
 
   if (error) {
     return (
@@ -73,6 +94,15 @@ export default function WebTripPage({ tripId, user, onMessageGuide }) {
         <p className="web-card-place">{trip.destination}</p>
         <h1>{trip.title}</h1>
         <div className="web-trip-tags">
+          <button
+            type="button"
+            className={`web-save${saved ? ' web-save-on' : ''}`}
+            onClick={toggleSave}
+            aria-pressed={saved}
+          >
+            <HeartIcon filled={saved} />
+            {saved ? 'Saved' : 'Save'}
+          </button>
           {trip.startDate && <span className="web-countdown">{tripCountdown(trip, now)}</span>}
           <RatingBadge rating={trip.rating} />
           {trip.reviewCount > 0 && <span className="web-faint">{trip.reviewCount} reviews</span>}

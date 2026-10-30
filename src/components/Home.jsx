@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client.js'
 import { TRAVEL_INTERESTS } from '../data/interests.js'
 import {
@@ -10,6 +10,8 @@ import {
   TRIP_CATEGORIES,
 } from '../data/categories.js'
 import BookTrip from './BookTrip.jsx'
+import ChangePasswordForm from './ChangePasswordForm.jsx'
+import { useShuffled } from '../hooks/useShuffled.js'
 import { cancelBookingWithConfirm } from './cancelBooking.js'
 import { formatDateRange, timeAgo, tripCountdown } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
@@ -34,6 +36,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CloseIcon,
+  HeartIcon,
   HomeIcon,
   MessageIcon,
   PenIcon,
@@ -169,6 +172,46 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
   function selectTab(key) {
     if (!signedIn && (key === 'trips' || key === 'profile')) onSignIn('login')
     else setActiveTab(key)
+  }
+
+  // The feed's trips and stories come up in a new order every 30 seconds.
+  const shuffledTrips = useShuffled(trips)
+  const shuffledBlogs = useShuffled(blogs)
+
+  const [changingPassword, setChangingPassword] = useState(false)
+
+  // Wishlist: trips saved with the heart on the trip page.
+  const [saved, setSaved] = useState([])
+  const savedIds = useMemo(() => new Set(saved.map((trip) => trip.id)), [saved])
+  const loadSaved = useCallback(() => {
+    api
+      .wishlist()
+      .then(({ trips: rows }) => setSaved(rows))
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (signedIn) loadSaved()
+    else setSaved([])
+  }, [signedIn, loadSaved])
+
+  async function toggleSave(trip) {
+    if (!signedIn) return onSignIn('login')
+    const wasSaved = savedIds.has(trip.id)
+    // Show the change straight away; put it back if the server refuses.
+    setSaved((prev) => (wasSaved ? prev.filter((t) => t.id !== trip.id) : [trip, ...prev]))
+    try {
+      if (wasSaved) await api.unsaveTrip(trip.id)
+      else await api.saveTrip(trip.id)
+    } catch (err) {
+      setLoadError(err.message)
+      loadSaved()
+    }
+  }
+
+  function messageAuthor(blog) {
+    if (!signedIn) return onSignIn('login')
+    chat.openChatWith(blog.author.id, null, blog.id)
   }
 
   const tabs = BASE_TABS
@@ -412,7 +455,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
             </div>
 
             <BlogsSection
-              blogs={blogs}
+              blogs={shuffledBlogs}
               loading={loadingBlogs}
               onCompose={() => (signedIn ? setComposingBlog(true) : onSignIn('login'))}
               onSelect={setViewingBlog}
@@ -473,7 +516,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
                 </div>
               )}
 
-              {trips.map((trip) => (
+              {shuffledTrips.map((trip) => (
                 <HeroTripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />
               ))}
             </section>
@@ -488,6 +531,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
             bookings={bookings}
             loadingBookings={loadingBookings}
             listings={myTrips}
+            saved={saved}
             onSelectTrip={setSelectedTrip}
             onCreateTrip={handlePostIntent}
             onEditTrip={(trip) => setTripFormState({ trip })}
@@ -744,6 +788,17 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
                     <span>Edit profile</span>
                     <ChevronRightIcon />
                   </button>
+                  <button
+                    type="button"
+                    className="sheet-option"
+                    onClick={() => {
+                      setOpenInfoSheet(null)
+                      setChangingPassword(true)
+                    }}
+                  >
+                    <span>{user?.hasPassword === false ? 'Set a password' : 'Change password'}</span>
+                    <ChevronRightIcon />
+                  </button>
                   <label className="sheet-option">
                     <span>Push notifications</span>
                     <ToggleSwitch
@@ -763,6 +818,33 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
                 TERMS_TEXT.map((paragraph, i) => <p key={i}>{paragraph}</p>)
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {changingPassword && (
+        <div className="edit-overlay">
+          <header className="edit-header">
+            <button
+              type="button"
+              className="edit-icon-btn"
+              onClick={() => setChangingPassword(false)}
+              aria-label="Close"
+            >
+              <CloseIcon />
+            </button>
+            <h2 className="edit-header-title">
+              {user.hasPassword ? 'Change password' : 'Set a password'}
+            </h2>
+            <span className="edit-header-spacer" />
+          </header>
+          <div className="edit-body">
+            <p className="field-hint password-intro">
+              {user.hasPassword
+                ? 'Enter your current password, then choose a new one. Other devices signed in to your account are signed out.'
+                : 'You sign in with Google. Set a password to also sign in with your email.'}
+            </p>
+            <ChangePasswordForm user={user} onChanged={onUserChange} />
           </div>
         </div>
       )}
@@ -831,6 +913,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
             signedIn ? chat.openChatWith(trip.guide.id, trip.id) : onSignIn('login')
           }
           onCancelBooking={signedIn ? handleCancelBooking : undefined}
+          saved={savedIds.has(selectedTrip.id)}
+          onToggleSave={toggleSave}
           onClose={() => setSelectedTrip(null)}
         />
       )}
@@ -876,6 +960,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
           blog={viewingBlog}
           currentUser={user}
           onRequireAuth={() => onSignIn('login')}
+          onMessageAuthor={messageAuthor}
           onVoted={(updated) =>
             setBlogs((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
           }
@@ -1101,6 +1186,7 @@ function MyTripsTab({
   bookings,
   loadingBookings,
   listings,
+  saved,
   onSelectTrip,
   onCreateTrip,
   onEditTrip,
@@ -1111,44 +1197,43 @@ function MyTripsTab({
   onViewApplicants,
 }) {
   const [segment, setSegment] = useState('attending')
-  const showSegments = user.canPostTrips
-  const active = showSegments ? segment : 'attending'
   const pendingTotal = listings.reduce((sum, trip) => sum + (trip.pendingRequests ?? 0), 0)
+  const segments = [
+    { key: 'attending', label: 'Attending' },
+    { key: 'saved', label: 'Saved', count: saved.length },
+    ...(user.canPostTrips ? [{ key: 'listings', label: 'My listings', badge: pendingTotal }] : []),
+  ]
+  const active = segments.some((s) => s.key === segment) ? segment : 'attending'
 
   return (
     <div className="my-trips-view">
-      {showSegments && (
-        <div className="segmented" role="tablist" aria-label="My trips">
+      <div className="segmented" role="tablist" aria-label="My trips">
+        {segments.map((s) => (
           <button
+            key={s.key}
             type="button"
             role="tab"
-            aria-selected={active === 'attending'}
-            className={`segment${active === 'attending' ? ' segment-active' : ''}`}
-            onClick={() => setSegment('attending')}
+            aria-selected={active === s.key}
+            className={`segment${active === s.key ? ' segment-active' : ''}`}
+            onClick={() => setSegment(s.key)}
           >
-            Attending
+            {s.label}
+            {s.count > 0 && <span className="segment-count">{s.count}</span>}
+            {s.badge > 0 && <span className="pending-badge">{s.badge}</span>}
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={active === 'listings'}
-            className={`segment${active === 'listings' ? ' segment-active' : ''}`}
-            onClick={() => setSegment('listings')}
-          >
-            My listings
-            {pendingTotal > 0 && <span className="pending-badge">{pendingTotal}</span>}
-          </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {active === 'attending' ? (
+      {active === 'attending' && (
         <AttendingList
           bookings={bookings}
           loading={loadingBookings}
           onSelectTrip={onSelectTrip}
           onExplore={onExplore}
         />
-      ) : (
+      )}
+      {active === 'saved' && <SavedList trips={saved} onSelectTrip={onSelectTrip} onExplore={onExplore} />}
+      {active === 'listings' && (
         <ListingsList
           listings={listings}
           onSelectTrip={onSelectTrip}
@@ -1160,6 +1245,32 @@ function MyTripsTab({
           onViewApplicants={onViewApplicants}
         />
       )}
+    </div>
+  )
+}
+
+/** Trips saved with the heart on the trip page. */
+function SavedList({ trips, onSelectTrip, onExplore }) {
+  if (trips.length === 0) {
+    return (
+      <div className="empty-state">
+        <HeartIcon />
+        <p>No saved trips yet.</p>
+        <p className="field-hint">Tap the heart on any trip to save it here for later.</p>
+        <button type="button" className="submit empty-state-cta" onClick={onExplore}>
+          Explore trips
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="trip-list-section">
+      <div className="trip-list">
+        {trips.map((trip) => (
+          <TripRow key={trip.id} trip={trip} onClick={() => onSelectTrip(trip)} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -1522,6 +1633,10 @@ function EditProfileOverlay({ user, onClose, onSaved }) {
           </div>
 
           {error && <p className="form-error">{error}</p>}
+
+          <button type="submit" className="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
         </form>
       </div>
     </div>

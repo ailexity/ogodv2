@@ -48,9 +48,10 @@ function discard(file) {
  */
 const CONVERSATION_QUERY = `
   SELECT c.*,
-         tr.name AS traveler_name,
+         tr.name AS traveler_name, tr.guide_status AS traveler_guide_status,
          g.name AS guide_name, g.guide_status AS guide_status,
          t.title AS trip_title,
+         bl.title AS blog_title,
          m.body AS last_body, m.image AS last_image, m.sender_id AS last_sender_id,
          m.created_at AS last_at,
          (SELECT COUNT(*) FROM messages u
@@ -61,6 +62,7 @@ const CONVERSATION_QUERY = `
     JOIN users tr ON tr.id = c.traveler_id
     JOIN users g  ON g.id = c.guide_id
     LEFT JOIN trips t ON t.id = c.trip_id
+    LEFT JOIN blogs bl ON bl.id = c.blog_id
     LEFT JOIN messages m ON m.id = (SELECT MAX(id) FROM messages WHERE conversation_id = c.id)
 `
 
@@ -69,10 +71,23 @@ function mapConversation(row, me) {
   return {
     id: row.id,
     role: iAmTraveler ? 'traveler' : 'guide',
+    // Chats can be with a guide or with a story's writer, so "guide" comes from
+    // the other person's own status rather than which side of the thread they're on.
     other: iAmTraveler
-      ? { id: row.guide_id, name: row.guide_name, isGuide: true, verified: row.guide_status === 'verified' }
-      : { id: row.traveler_id, name: row.traveler_name, isGuide: false, verified: false },
+      ? {
+          id: row.guide_id,
+          name: row.guide_name,
+          isGuide: row.guide_status === 'verified',
+          verified: row.guide_status === 'verified',
+        }
+      : {
+          id: row.traveler_id,
+          name: row.traveler_name,
+          isGuide: row.traveler_guide_status === 'verified',
+          verified: row.traveler_guide_status === 'verified',
+        },
     trip: row.trip_id ? { id: row.trip_id, title: row.trip_title } : null,
+    blog: row.blog_id ? { id: row.blog_id, title: row.blog_title } : null,
     lastMessage: row.last_at
       ? {
           body: row.last_body,
@@ -111,7 +126,7 @@ function loadBookingSummary(bookingId) {
 }
 
 /** Finds the thread between two people (either way round) or opens one. */
-export function ensureConversation(travelerId, guideId, tripId) {
+export function ensureConversation(travelerId, guideId, tripId, blogId = null) {
   const existing = db
     .prepare(
       `SELECT * FROM conversations
@@ -119,13 +134,19 @@ export function ensureConversation(travelerId, guideId, tripId) {
     )
     .get(travelerId, guideId, guideId, travelerId)
   if (existing) {
-    // Keep the thread pointing at the trip they are talking about now.
-    if (tripId) db.prepare('UPDATE conversations SET trip_id = ? WHERE id = ?').run(tripId, existing.id)
+    // Keep the thread pointing at the trip or story they are talking about now.
+    if (tripId || blogId) {
+      db.prepare('UPDATE conversations SET trip_id = ?, blog_id = ? WHERE id = ?').run(
+        tripId ?? null,
+        blogId ?? null,
+        existing.id,
+      )
+    }
     return { conversation: existing, created: false }
   }
   const id = db
-    .prepare('INSERT INTO conversations (traveler_id, guide_id, trip_id) VALUES (?, ?, ?)')
-    .run(travelerId, guideId, tripId ?? null).lastInsertRowid
+    .prepare('INSERT INTO conversations (traveler_id, guide_id, trip_id, blog_id) VALUES (?, ?, ?, ?)')
+    .run(travelerId, guideId, tripId ?? null, blogId ?? null).lastInsertRowid
   return { conversation: db.prepare('SELECT * FROM conversations WHERE id = ?').get(id), created: true }
 }
 
@@ -237,6 +258,11 @@ router.post('/', startLimit, (req, res) => {
 
   const trip = tripId ? db.prepare('SELECT id, guide_id FROM trips WHERE id = ?').get(tripId) : null
   if (tripId && !trip) return res.status(404).json({ error: 'Trip not found' })
+  const blogId = req.body?.blogId ? Number(req.body.blogId) : null
+  const blog = blogId
+    ? db.prepare("SELECT id, author_id FROM blogs WHERE id = ? AND status = 'published'").get(blogId)
+    : null
+  if (blogId && !blog) return res.status(404).json({ error: 'Story not found' })
 
   let travelerId
   let guideId
@@ -249,14 +275,20 @@ router.post('/', startLimit, (req, res) => {
     }
     travelerId = otherId
     guideId = me
-  } else if (other.guide_status === 'verified') {
+  } else if (blog?.author_id === otherId || other.guide_status === 'verified') {
+    // Anyone can write to a trip's guide or to the writer of a story.
     travelerId = me
     guideId = otherId
   } else {
-    return res.status(403).json({ error: 'You can only message verified guides' })
+    return res.status(403).json({ error: 'You can message trip guides and story writers' })
   }
 
-  const { conversation, created } = ensureConversation(travelerId, guideId, trip?.id ?? null)
+  const { conversation, created } = ensureConversation(
+    travelerId,
+    guideId,
+    trip?.id ?? null,
+    blog?.id ?? null,
+  )
   res
     .status(created ? 201 : 200)
     .json({ conversation: mapConversation(loadConversation(conversation.id, me), me) })

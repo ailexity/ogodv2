@@ -166,7 +166,11 @@ export function MessagesInbox({ onClose, onOpen }) {
                   <span className="chat-inbox-time">{formatTime(conversation.lastMessage.createdAt)}</span>
                 )}
               </span>
-              {conversation.trip && <span className="chat-inbox-trip">{conversation.trip.title}</span>}
+              {(conversation.trip || conversation.blog) && (
+                <span className="chat-inbox-trip">
+                  {conversation.trip?.title ?? `Story: ${conversation.blog.title}`}
+                </span>
+              )}
               <span className={`chat-inbox-preview${conversation.unread ? ' unread' : ''}`}>
                 {conversation.lastMessage?.fromMe && 'You: '}
                 {conversation.lastMessage?.body || (conversation.lastMessage?.hasImage ? 'Photo' : '')}
@@ -287,7 +291,12 @@ export function ChatThread({ conversationId, onClose }) {
               {other?.verified && <VerifiedIcon />}
             </p>
             <p className="chat-header-sub">
-              {conversation?.trip?.title ?? (other?.isGuide ? 'Guide' : 'Traveller')}
+              {conversation?.trip?.title ??
+                (conversation?.blog
+                  ? `Story: ${conversation.blog.title}`
+                  : other?.isGuide
+                    ? 'Guide'
+                    : 'Traveller')}
             </p>
           </div>
         </div>
@@ -296,7 +305,10 @@ export function ChatThread({ conversationId, onClose }) {
       <div className="chat-messages" ref={listRef}>
         {conversation && messages.length === 0 && (
           <p className="chat-empty">
-            Say hello to {other?.name.split(' ')[0]} — ask about dates, meeting points or what to pack.
+            Say hello to {other?.name.split(' ')[0]} —{' '}
+            {conversation.blog && !conversation.trip
+              ? 'ask about their story or the places in it.'
+              : 'ask about dates, meeting points or what to pack.'}
           </p>
         )}
         {messages.map((message) => (
@@ -513,10 +525,10 @@ export function useChatLauncher() {
   const [inboxOpen, setInboxOpen] = useState(false)
   const [error, setError] = useState('')
 
-  const openChatWith = useCallback(async (userId, tripId) => {
+  const openChatWith = useCallback(async (userId, tripId, blogId) => {
     setError('')
     try {
-      const { conversation } = await api.startConversation(userId, tripId)
+      const { conversation } = await api.startConversation(userId, tripId, blogId)
       setChatId(conversation.id)
     } catch (err) {
       setError(err.message)

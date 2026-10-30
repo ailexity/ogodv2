@@ -9,6 +9,7 @@ import tripRoutes from './routes/trips.js'
 import bookingRoutes from './routes/bookings.js'
 import blogRoutes from './routes/blogs.js'
 import messageRoutes from './routes/messages.js'
+import wishlistRoutes from './routes/wishlist.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4000)
@@ -40,6 +41,7 @@ app.use('/api/trips', tripRoutes)
 app.use('/api/bookings', bookingRoutes)
 app.use('/api/blogs', blogRoutes)
 app.use('/api/messages', messageRoutes)
+app.use('/api/wishlist', wishlistRoutes)
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }))
 

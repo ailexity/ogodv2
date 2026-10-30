@@ -16,6 +16,8 @@ import {
   tripCountdown,
 } from '../data/dates.js'
 
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP']
+
 function initialState(trip) {
   return {
     title: trip?.title ?? '',
@@ -25,7 +27,7 @@ function initialState(trip) {
     minGroupSize: trip?.minGroupSize ?? 1,
     maxGroupSize: trip?.maxGroupSize ?? 8,
     pricePerPerson: trip?.pricePerPerson ?? '',
-    currency: trip?.currency ?? 'USD',
+    currency: trip?.currency ?? 'INR',
     difficulty: trip?.difficulty ?? '',
     startDate: trip?.startDate ?? '',
     endDate: trip?.endDate ?? '',
@@ -165,7 +167,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
               name="title"
               value={form.title}
               onChange={handleChange}
-              placeholder="e.g. Sunset Kayaking in Halong Bay"
+              placeholder="e.g. Sunrise trek to Triund"
               required
             />
           </label>
@@ -177,7 +179,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
               name="destination"
               value={form.destination}
               onChange={handleChange}
-              placeholder="e.g. Halong Bay, Vietnam"
+              placeholder="e.g. McLeod Ganj, Himachal Pradesh"
               required
             />
           </label>
@@ -262,7 +264,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
                 name="meetingPoint"
                 value={form.meetingPoint}
                 onChange={handleChange}
-                placeholder="e.g. Kyoto Station, Hachijo east exit, 07:30"
+                placeholder="e.g. McLeod Ganj bus stand, 6:00 am"
               />
             </label>
 
@@ -300,19 +302,19 @@ export default function TripForm({ trip, onClose, onSaved }) {
                   onChange={handleChange}
                   min="0"
                   step="1"
-                  placeholder="450"
+                  placeholder="e.g. 3499"
                 />
               </label>
 
               <label className="field">
                 <span className="field-label">Currency</span>
-                <input
-                  type="text"
-                  name="currency"
-                  value={form.currency}
-                  onChange={handleChange}
-                  maxLength={3}
-                />
+                <select name="currency" value={form.currency} onChange={handleChange}>
+                  {CURRENCIES.map((code) => (
+                    <option key={code} value={code}>
+                      {code}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
 
@@ -383,7 +385,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
                       }))
                     }
                   >
-                    {level}
+                    {level[0].toUpperCase() + level.slice(1)}
                   </button>
                 ))}
               </div>
@@ -409,7 +411,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
           </div>
 
           <div className="form-section">
-            <h3 className="form-section-title">What travelers get</h3>
+            <h3 className="form-section-title">What travellers get</h3>
 
             <label className="field">
               <span className="field-label">Highlights</span>
@@ -447,16 +449,26 @@ export default function TripForm({ trip, onClose, onSaved }) {
 
           {error && <p className="form-error">{error}</p>}
 
-          {!editing && (
+          <div className="form-actions">
             <button
               type="button"
-              className="ghost-btn full-width"
-              onClick={() => save('draft')}
+              className="submit"
+              onClick={() => save('published')}
               disabled={submitting}
             >
-              Save as draft
+              {submitting ? 'Saving…' : editing ? 'Save changes' : 'Publish trip'}
             </button>
-          )}
+            {!editing && (
+              <button
+                type="button"
+                className="ghost-btn full-width"
+                onClick={() => save('draft')}
+                disabled={submitting}
+              >
+                Save as draft
+              </button>
+            )}
+          </div>
         </form>
       </div>
     </div>

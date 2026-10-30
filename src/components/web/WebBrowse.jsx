@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 import { BlogDetailOverlay, BlogVotes } from '../Blogs.jsx'
+import { useShuffled } from '../../hooks/useShuffled.js'
 import { TRIP_CATEGORIES } from '../../data/categories.js'
 import { FILTERS } from '../Home.jsx'
 import { SearchIcon, ShieldIcon, CheckIcon, CompassIcon } from '../icons.jsx'
@@ -24,7 +25,7 @@ const STEPS = [
   },
 ]
 
-export default function WebBrowse({ user, onSignIn }) {
+export default function WebBrowse({ user, onSignIn, onMessageAuthor }) {
   const [blogs, setBlogs] = useState([])
   const [openBlog, setOpenBlog] = useState(null)
 
@@ -46,6 +47,9 @@ export default function WebBrowse({ user, onSignIn }) {
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  // Trips and stories come up in a new order every 30 seconds.
+  const shuffledTrips = useShuffled(trips)
+  const shuffledBlogs = useShuffled(blogs)
 
   useEffect(() => {
     let cancelled = false
@@ -183,7 +187,7 @@ export default function WebBrowse({ user, onSignIn }) {
           </div>
         ) : (
           <div className="web-grid">
-            {trips.map((trip) => (
+            {shuffledTrips.map((trip) => (
               <WebTripCard key={trip.id} trip={trip} />
             ))}
           </div>
@@ -197,7 +201,7 @@ export default function WebBrowse({ user, onSignIn }) {
             <span className="web-faint">From travellers and guides</span>
           </div>
           <div className="web-story-grid">
-            {blogs.slice(0, 6).map((blog) => (
+            {shuffledBlogs.slice(0, 6).map((blog) => (
               <article key={blog.id} className="web-story">
                 <button type="button" className="web-story-open" onClick={() => setOpenBlog(blog)}>
                   <div className="web-story-media">
@@ -237,6 +241,7 @@ export default function WebBrowse({ user, onSignIn }) {
             }}
             onVoted={updateBlog}
             onRequireAuth={() => onSignIn('login')}
+            onMessageAuthor={onMessageAuthor}
           />
         </>
       )}

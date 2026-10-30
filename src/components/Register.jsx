@@ -3,6 +3,7 @@ import { api } from '../api/client.js'
 import { TRAVEL_INTERESTS } from '../data/interests.js'
 import AuthLayout from './AuthLayout.jsx'
 import GoogleSignIn from './GoogleSignIn.jsx'
+import PasswordInput from './PasswordInput.jsx'
 
 const INITIAL_FORM = {
   name: '',
@@ -100,6 +101,46 @@ export default function Register({ onAuthenticated, onRegistered, onSwitchToLogi
         </label>
 
         <label className="field">
+          <span className="field-label">Email address</span>
+          <input
+            type="email"
+            name="email"
+            value={form.email}
+            onChange={handleChange}
+            placeholder="you@example.com"
+            autoComplete="email"
+            required
+          />
+        </label>
+
+        <label className="field">
+          <span className="field-label">Password</span>
+          <PasswordInput
+            name="password"
+            value={form.password}
+            onChange={handleChange}
+            placeholder="Create a password"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
+          <span className="form-hint">At least 8 characters, with a letter and a number.</span>
+        </label>
+
+        <label className="field">
+          <span className="field-label">Phone number</span>
+          <input
+            type="tel"
+            name="phone"
+            value={form.phone}
+            onChange={handleChange}
+            placeholder="Enter your phone number"
+            autoComplete="tel"
+            required
+          />
+        </label>
+
+        <label className="field">
           <span className="field-label">Age</span>
           <input
             type="number"
@@ -125,49 +166,8 @@ export default function Register({ onAuthenticated, onRegistered, onSwitchToLogi
           />
         </label>
 
-        <label className="field">
-          <span className="field-label">Phone number</span>
-          <input
-            type="tel"
-            name="phone"
-            value={form.phone}
-            onChange={handleChange}
-            placeholder="Enter your phone number"
-            autoComplete="tel"
-            required
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Email address</span>
-          <input
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="you@example.com"
-            autoComplete="email"
-            required
-          />
-        </label>
-
-        <label className="field">
-          <span className="field-label">Password</span>
-          <input
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={handleChange}
-            placeholder="Create a password"
-            autoComplete="new-password"
-            minLength={8}
-            required
-          />
-          <span className="form-hint">At least 8 characters, with a letter and a number.</span>
-        </label>
-
         <div className="field">
-          <span className="field-label">Interested in which type of travelling?</span>
+          <span className="field-label">What kind of trips do you enjoy?</span>
           <div className="chip-group" role="group" aria-label="Travel interests">
             {TRAVEL_INTERESTS.map((interest) => (
               <button

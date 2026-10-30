@@ -1297,3 +1297,35 @@
 .web-danger-link {
   color: var(--danger);
 }
+
+/* ---------- Wishlist ------------------------------------------------------ */
+
+.web-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.web-save:hover {
+  border-color: var(--ink);
+}
+
+.web-save svg {
+  width: 16px;
+  height: 16px;
+}
+
+.web-save-on {
+  border-color: var(--danger);
+  color: var(--danger);
+}

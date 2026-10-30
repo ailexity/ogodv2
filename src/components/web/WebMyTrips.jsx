@@ -5,6 +5,7 @@ import { beforeTripStarts, formatDateRange, timeAgo, tripCountdown } from '../..
 import { useNow } from '../../hooks/useNow.js'
 import { BOOKING_STATUS } from '../../data/categories.js'
 import { TripCover, formatMoney } from '../TripDetail.jsx'
+import WebTripCard from './WebTripCard.jsx'
 
 const GROUPS = [
   { title: 'Upcoming', statuses: ['pending', 'confirmed'] },
@@ -16,11 +17,17 @@ export default function WebMyTrips() {
   const [bookings, setBookings] = useState(null)
   const [error, setError] = useState('')
 
+  const [saved, setSaved] = useState([])
+
   const load = useCallback(() => {
     api
       .myBookings()
       .then(({ bookings: rows }) => setBookings(rows))
       .catch((err) => setError(err.message))
+    api
+      .wishlist()
+      .then(({ trips }) => setSaved(trips))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -59,6 +66,21 @@ export default function WebMyTrips() {
             </section>
           )
         })}
+
+      <section className="web-block">
+        <h2>
+          Saved <span className="web-faint">{saved.length}</span>
+        </h2>
+        {saved.length === 0 ? (
+          <p className="web-faint">Tap Save on any trip page to keep it here for later.</p>
+        ) : (
+          <div className="web-grid">
+            {saved.map((trip) => (
+              <WebTripCard key={trip.id} trip={trip} />
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   )
 }
