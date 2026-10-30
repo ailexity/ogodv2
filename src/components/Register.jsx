@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { api } from '../api/client.js'
 import { TRAVEL_INTERESTS } from '../data/interests.js'
 import AuthLayout from './AuthLayout.jsx'
+import GoogleSignIn from './GoogleSignIn.jsx'
 
 const INITIAL_FORM = {
   name: '',
@@ -12,7 +13,7 @@ const INITIAL_FORM = {
   password: '',
 }
 
-export default function Register({ onAuthenticated, onSwitchToLogin }) {
+export default function Register({ onAuthenticated, onRegistered, onSwitchToLogin }) {
   const [form, setForm] = useState(INITIAL_FORM)
   const [interests, setInterests] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -55,17 +56,16 @@ export default function Register({ onAuthenticated, onSwitchToLogin }) {
     setSubmitting(true)
 
     try {
-      onAuthenticated(
-        await api.register({
-          email: form.email.trim(),
-          password: form.password,
-          name: form.name.trim(),
-          age: Number(form.age),
-          address: form.address.trim(),
-          phone: form.phone.trim(),
-          interests,
-        }),
-      )
+      const result = await api.register({
+        email: form.email.trim(),
+        password: form.password,
+        name: form.name.trim(),
+        age: Number(form.age),
+        address: form.address.trim(),
+        phone: form.phone.trim(),
+        interests,
+      })
+      onRegistered(result.email, result.emailSent)
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
@@ -160,8 +160,10 @@ export default function Register({ onAuthenticated, onSwitchToLogin }) {
             onChange={handleChange}
             placeholder="Create a password"
             autoComplete="new-password"
+            minLength={8}
             required
           />
+          <span className="form-hint">At least 8 characters, with a letter and a number.</span>
         </label>
 
         <div className="field">
@@ -187,6 +189,12 @@ export default function Register({ onAuthenticated, onSwitchToLogin }) {
           {submitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>
+
+      <div className="divider">
+        <span>or sign up with</span>
+      </div>
+
+      <GoogleSignIn remember onAuthenticated={onAuthenticated} onError={setError} />
     </AuthLayout>
   )
 }

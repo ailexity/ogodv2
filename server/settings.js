@@ -34,6 +34,21 @@ export const SETTING_DEFINITIONS = {
     type: 'boolean',
     default: true,
   },
+  guide_subscription_fee: {
+    label: 'Guide subscription (₹ per year)',
+    hint: 'What a guide pays OGod each year to stay verified and post trips.',
+    type: 'amount',
+    default: 3000,
+    min: 0,
+    max: 100000,
+  },
+  platform_upi: {
+    label: 'OGod UPI ID',
+    hint: 'Where guides pay the yearly subscription. Shown on the guide application.',
+    type: 'text',
+    default: '',
+    maxLength: 100,
+  },
   bookings_enabled: {
     label: 'Bookings',
     hint: 'When off, no new bookings can be placed anywhere on the platform.',
@@ -45,6 +60,7 @@ export const SETTING_DEFINITIONS = {
 function parse(key, raw) {
   const definition = SETTING_DEFINITIONS[key]
   if (definition.type === 'boolean') return raw === 'true'
+  if (definition.type === 'text') return raw
   const value = Number(raw)
   return Number.isFinite(value) ? value : definition.default
 }
@@ -76,16 +92,26 @@ export function updateSettings(patch) {
     const definition = SETTING_DEFINITIONS[key]
     if (!definition) return { error: `Unknown setting: ${key}` }
 
+    if (definition.type === 'text') {
+      const value = String(raw ?? '').trim()
+      if (value.length > definition.maxLength) return { error: `${definition.label} is too long` }
+      pending.push([key, value])
+      continue
+    }
+
     if (definition.type === 'boolean') {
-      pending.push([key, raw ? 'true' : 'false'])
+      // The string "false" is truthy, so compare explicitly.
+      pending.push([key, raw === true || raw === 'true' ? 'true' : 'false'])
       continue
     }
 
     const value = Number(raw)
     if (!Number.isFinite(value) || value < definition.min || value > definition.max) {
-      return {
-        error: `${definition.label} must be between ${definition.min * 100}% and ${definition.max * 100}%`,
-      }
+      const range =
+        definition.type === 'rate'
+          ? `${definition.min * 100}% and ${definition.max * 100}%`
+          : `${definition.min} and ${definition.max}`
+      return { error: `${definition.label} must be between ${range}` }
     }
     pending.push([key, String(value)])
   }

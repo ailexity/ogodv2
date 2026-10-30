@@ -81,7 +81,12 @@ export default function AdminReview() {
               onClick={() => setSelected(application)}
             >
               <div>
-                <p className="admin-row-name">{application.applicant.name}</p>
+                <p className="admin-row-name">
+                  {application.applicant.name}
+                  {application.kind === 'renewal' && (
+                    <span className="chip chip-static admin-kind-tag">Subscription renewal</span>
+                  )}
+                </p>
                 <p className="admin-row-meta">
                   {application.applicant.email} · {application.yearsExperience} yrs ·{' '}
                   {application.areas.join(', ')}
@@ -281,6 +286,7 @@ const DOCUMENT_LABELS = {
   selfie: 'Selfie',
   addressProof: 'Proof of address',
   licenseDocument: 'Tour-guide licence',
+  feeReceipt: 'Subscription payment receipt',
 }
 
 /**

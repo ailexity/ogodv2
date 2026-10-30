@@ -115,6 +115,9 @@ export default function AdminPeople({ currentUserId }) {
                             {person.disabled && (
                               <span className="status-pill status-suspended">Disabled</span>
                             )}
+                            {!person.emailVerified && (
+                              <span className="status-pill status-pending">Unconfirmed</span>
+                            )}
                           </span>
                           <span className="table-email">{person.email}</span>
                         </div>
@@ -240,14 +243,22 @@ function PersonEditor({ person, isSelf, onClose, onChanged, onDeleted }) {
   }
 
   function savePassword() {
-    if (newPassword.length < 6) return setError('Password must be at least 6 characters')
+    if (newPassword.length < 8) return setError('Password must be at least 8 characters')
     if (newPassword !== confirmPassword) return setError('Passwords do not match')
 
     return run(async () => {
       await api.resetUserPassword(person.id, newPassword)
       setNewPassword('')
       setConfirmPassword('')
-      setNotice('Password reset. Share it with the account holder directly.')
+      setNotice('Password reset and all their sessions signed out. Share it with them directly.')
+    })
+  }
+
+  function confirmEmail() {
+    return run(async () => {
+      const { user } = await api.verifyUserEmail(person.id)
+      setNotice('Email marked as confirmed. They can sign in now.')
+      await onChanged(user)
     })
   }
 
@@ -403,6 +414,11 @@ function PersonEditor({ person, isSelf, onClose, onChanged, onDeleted }) {
         {notice && <p className="save-note">{notice}</p>}
 
         <div className="decision-row">
+          {!person.emailVerified && (
+            <button type="button" className="ghost-btn" onClick={confirmEmail} disabled={busy}>
+              Mark email confirmed
+            </button>
+          )}
           <button
             type="button"
             className="ghost-btn"

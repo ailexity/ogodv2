@@ -63,7 +63,7 @@ export default function AdminApp({ user, onLogout }) {
         {section === 'verification' && <AdminReview />}
         {section === 'people' && <AdminPeople currentUserId={user.id} />}
         {section === 'blogs' && <AdminBlogs />}
-        {section === 'settings' && <AdminSettings />}
+        {section === 'settings' && <AdminSettings user={user} />}
       </main>
     </div>
   )

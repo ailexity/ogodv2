@@ -16,3 +16,18 @@ export function verifyPassword(password, stored) {
   const derived = scryptSync(password, salt, KEY_LENGTH)
   return expected.length === derived.length && timingSafeEqual(expected, derived)
 }
+
+export const PASSWORD_MIN_LENGTH = 8
+
+/** Returns an error message for a password that does not meet the policy, or null. */
+export function passwordProblem(password) {
+  const value = String(password ?? '')
+  if (value.length < PASSWORD_MIN_LENGTH) {
+    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`
+  }
+  if (value.length > 128) return 'Password must be at most 128 characters'
+  if (!/[a-zA-Z]/.test(value) || !/\d/.test(value)) {
+    return 'Password must include at least one letter and one number'
+  }
+  return null
+}

@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { api } from '../api/client.js'
 import { getInitials } from './TripDetail.jsx'
-import { CloseIcon, VerifiedIcon } from './icons.jsx'
+import { CloseIcon, ThumbDownIcon, ThumbUpIcon, VerifiedIcon } from './icons.jsx'
+import { timeAgo } from '../data/dates.js'
+import { useNow } from '../hooks/useNow.js'
 
 /** The horizontally-scrolling "Travel stories" strip on the home feed. */
 export function BlogsSection({ blogs, loading, onCompose, onSelect, onSeeAll }) {
@@ -64,6 +66,59 @@ export function BlogsAllOverlay({ blogs, onSelect, onClose }) {
   )
 }
 
+/**
+ * Upvote / dislike. Pressing your current choice again clears it. Signed-out
+ * visitors are asked to sign in first.
+ */
+export function BlogVotes({ blog, currentUser, onVoted, onRequireAuth, compact = false }) {
+  const [busy, setBusy] = useState(false)
+
+  async function vote(value) {
+    if (!currentUser) return onRequireAuth?.()
+    if (busy) return
+    setBusy(true)
+    try {
+      const { blog: updated } = await api.voteBlog(blog.id, blog.myVote === value ? 0 : value)
+      onVoted?.(updated)
+    } catch {
+      // A failed vote just leaves the counts as they were.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className={`blog-votes${compact ? ' blog-votes-compact' : ''}`}>
+      <button
+        type="button"
+        className={`vote-btn${blog.myVote === 1 ? ' vote-btn-active' : ''}`}
+        aria-pressed={blog.myVote === 1}
+        aria-label={`Upvote (${blog.upvotes})`}
+        onClick={(e) => {
+          e.stopPropagation()
+          vote(1)
+        }}
+      >
+        <ThumbUpIcon />
+        <span>{blog.upvotes}</span>
+      </button>
+      <button
+        type="button"
+        className={`vote-btn${blog.myVote === -1 ? ' vote-btn-active' : ''}`}
+        aria-pressed={blog.myVote === -1}
+        aria-label={`Dislike (${blog.downvotes})`}
+        onClick={(e) => {
+          e.stopPropagation()
+          vote(-1)
+        }}
+      >
+        <ThumbDownIcon />
+        <span>{blog.downvotes}</span>
+      </button>
+    </div>
+  )
+}
+
 function BlogCard({ blog, onClick }) {
   return (
     <button type="button" className="blog-card" onClick={onClick}>
@@ -90,14 +145,27 @@ function BlogCard({ blog, onClick }) {
             </span>
           )}
         </p>
+        <p className="blog-card-votes" aria-label={`${blog.upvotes} upvotes, ${blog.downvotes} dislikes`}>
+          <ThumbUpIcon /> {blog.upvotes}
+          <ThumbDownIcon /> {blog.downvotes}
+        </p>
       </div>
     </button>
   )
 }
 
 /** Full-screen story: media, byline, and body text. Owner (or admin) may delete it. */
-export function BlogDetailOverlay({ blog, currentUser, onClose, onDeleted }) {
+export function BlogDetailOverlay({
+  blog: initialBlog,
+  currentUser,
+  onClose,
+  onDeleted,
+  onVoted,
+  onRequireAuth,
+}) {
+  const [blog, setBlog] = useState(initialBlog)
   const [error, setError] = useState('')
+  const now = useNow()
   const [busy, setBusy] = useState(false)
   const canDelete = currentUser && (currentUser.id === blog.author.id || currentUser.role === 'admin')
 
@@ -147,10 +215,20 @@ export function BlogDetailOverlay({ blog, currentUser, onClose, onDeleted }) {
               </span>
             )}
           </span>
-          <span className="blog-detail-date">{blog.createdAt?.slice(0, 10)}</span>
+          <span className="blog-detail-date">{timeAgo(blog.createdAt, now)}</span>
         </p>
 
         <p className="blog-detail-content">{blog.content}</p>
+
+        <BlogVotes
+          blog={blog}
+          currentUser={currentUser}
+          onRequireAuth={onRequireAuth}
+          onVoted={(updated) => {
+            setBlog(updated)
+            onVoted?.(updated)
+          }}
+        />
 
         {error && <p className="form-error">{error}</p>}
 

@@ -8,10 +8,12 @@ const serverDir = path.dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = path.join(serverDir, 'data')
 export const UPLOADS_DIR = path.join(serverDir, 'uploads')
 export const BLOG_MEDIA_DIR = path.join(serverDir, 'blog-media')
+export const CHAT_MEDIA_DIR = path.join(serverDir, 'chat-media')
 
 mkdirSync(DATA_DIR, { recursive: true })
 mkdirSync(UPLOADS_DIR, { recursive: true })
 mkdirSync(BLOG_MEDIA_DIR, { recursive: true })
+mkdirSync(CHAT_MEDIA_DIR, { recursive: true })
 
 export const db = new Database(path.join(DATA_DIR, 'ogod.db'))
 db.pragma('journal_mode = WAL')
@@ -54,7 +56,7 @@ db.exec(`
     license_document TEXT,
     address_proof    TEXT,
     review_notes     TEXT,
-    reviewed_by      INTEGER REFERENCES users(id),
+    reviewed_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
     reviewed_at      TEXT,
     created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
   );
@@ -162,12 +164,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_blogs_author ON blogs(author_id);
 `)
 
-/** Adds a column to an already-created table, so existing dev databases keep working. */
+/**
+ * Adds a column to an already-created table, so existing dev databases keep
+ * working. Returns true when the column was added just now.
+ */
 function ensureColumn(table, column, definition) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all()
-  if (!columns.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
-  }
+  if (columns.some((c) => c.name === column)) return false
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`)
+  return true
 }
 
 ensureColumn('bookings', 'notes', 'TEXT')
@@ -175,6 +180,87 @@ ensureColumn('bookings', 'guide_note', 'TEXT')
 ensureColumn('bookings', 'service_fee', 'REAL NOT NULL DEFAULT 0')
 ensureColumn('bookings', 'tax', 'REAL NOT NULL DEFAULT 0')
 ensureColumn('users', 'disabled', 'INTEGER NOT NULL DEFAULT 0')
+// Accounts that existed before email verification was introduced are trusted as
+// verified; only sign-ups from here on have to confirm their address.
+if (ensureColumn('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 0')) {
+  db.exec('UPDATE users SET email_verified = 1')
+}
+ensureColumn('users', 'google_id', 'TEXT')
+// Bumped whenever a password changes, which invalidates every token issued before it.
+ensureColumn('users', 'token_version', 'INTEGER NOT NULL DEFAULT 0')
+// Where travellers pay a guide; quoted in the automatic message after each booking.
+ensureColumn('users', 'payout_upi', 'TEXT')
+ensureColumn('users', 'payout_bank', 'TEXT')
+// Guides pay OGod a yearly subscription. Guides verified before it existed get a
+// year from today rather than being locked out.
+if (ensureColumn('users', 'subscription_until', 'TEXT')) {
+  db.exec("UPDATE users SET subscription_until = date('now', '+1 year') WHERE guide_status IN ('verified', 'suspended')")
+}
+// unpaid → proof_sent (traveller sent a screenshot) → received (guide checked it).
+ensureColumn('bookings', 'payment_status', "TEXT NOT NULL DEFAULT 'unpaid'")
+// Who ended a cancelled booking: 'traveler', 'guide' (declined) or 'trip' (trip cancelled).
+ensureColumn('bookings', 'cancelled_by', 'TEXT')
+ensureColumn('guide_applications', 'fee_receipt', 'TEXT')
+// 'verification' (first application) or 'renewal' (yearly subscription only).
+ensureColumn('guide_applications', 'kind', "TEXT NOT NULL DEFAULT 'verification'")
+
+db.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id) WHERE google_id IS NOT NULL;
+
+  -- Single-use links sent by email. Only a SHA-256 of the token is stored, so a
+  -- leaked database cannot be used to verify or reset anyone's account.
+  CREATE TABLE IF NOT EXISTS email_tokens (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purpose    TEXT    NOT NULL CHECK (purpose IN ('verify_email', 'reset_password')),
+    token_hash TEXT    NOT NULL UNIQUE,
+    expires_at TEXT    NOT NULL,
+    created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_email_tokens_user ON email_tokens(user_id, purpose);
+
+  -- Private chat between a traveller and a guide, one thread per pair. Each
+  -- side's last-read message id drives the unread badges.
+  CREATE TABLE IF NOT EXISTS conversations (
+    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+    traveler_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    guide_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    trip_id            INTEGER REFERENCES trips(id) ON DELETE SET NULL,
+    traveler_last_read INTEGER NOT NULL DEFAULT 0,
+    guide_last_read    INTEGER NOT NULL DEFAULT 0,
+    created_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at         TEXT    NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (traveler_id, guide_id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_conversations_guide ON conversations(guide_id);
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    sender_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body            TEXT    NOT NULL DEFAULT '',
+    image           TEXT,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, id);
+
+  -- One vote per person per story: 1 is an upvote, -1 a dislike.
+  CREATE TABLE IF NOT EXISTS blog_votes (
+    blog_id    INTEGER NOT NULL REFERENCES blogs(id) ON DELETE CASCADE,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    value      INTEGER NOT NULL CHECK (value IN (1, -1)),
+    created_at TEXT    NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (blog_id, user_id)
+  );
+`)
+
+// Messages the app sends on the guide's behalf carry a kind and the booking they
+// are about, so the chat can show booking and ticket cards.
+ensureColumn('messages', 'kind', "TEXT NOT NULL DEFAULT 'text'")
+ensureColumn('messages', 'booking_id', 'INTEGER REFERENCES bookings(id) ON DELETE SET NULL')
 
 /** Guards the admin People screen from locking the platform out of its own console. */
 export function isLastEnabledAdmin(userId) {
@@ -217,6 +303,8 @@ function dropLegacyBookingConstraint() {
         total_paid   REAL    NOT NULL DEFAULT 0,
         service_fee  REAL    NOT NULL DEFAULT 0,
         tax          REAL    NOT NULL DEFAULT 0,
+        payment_status TEXT  NOT NULL DEFAULT 'unpaid',
+        cancelled_by TEXT,
         notes        TEXT,
         guide_note   TEXT,
         booked_at    TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -250,8 +338,8 @@ function ensureAdminAccount() {
   const password = process.env.OGOD_ADMIN_PASSWORD ?? 'ChangeMe@123'
 
   db.prepare(
-    `INSERT INTO users (email, password_hash, role, name, guide_status)
-     VALUES (?, ?, 'admin', ?, 'none')`,
+    `INSERT INTO users (email, password_hash, role, name, guide_status, email_verified)
+     VALUES (?, ?, 'admin', ?, 'none', 1)`,
   ).run(email, hashPassword(password), process.env.OGOD_ADMIN_NAME ?? 'Administrator')
 
   if (!process.env.OGOD_ADMIN_PASSWORD) {

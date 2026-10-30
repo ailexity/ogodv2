@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client.js'
 import { BOOKING_STATUS, GENDER_OPTIONS } from '../data/categories.js'
 import { formatMoney, getInitials } from './TripDetail.jsx'
-import { CheckIcon, CloseIcon } from './icons.jsx'
+import { CheckIcon, CloseIcon, MessageIcon } from './icons.jsx'
 
 const GENDER_LABEL = Object.fromEntries(GENDER_OPTIONS.map((o) => [o.value, o.label]))
 
 /** Doc §5 step 5: the guide's roster — who applied, who is confirmed. */
-export default function TripApplicants({ trip, onClose, onChanged }) {
+export default function TripApplicants({ trip, onClose, onChanged, onMessage }) {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -32,10 +32,12 @@ export default function TripApplicants({ trip, onClose, onChanged }) {
   }, [load])
 
   async function approve(booking) {
+    const amount = formatMoney(booking.totalPaid, booking.trip.currency)
+    if (!window.confirm(`Approve this booking? Only do this once ${amount} has reached your account.`)) return
     setBusyId(booking.id)
     setError('')
     try {
-      await api.approveBooking(booking.id)
+      await api.approveBooking(booking.id, '', true)
       await load()
       onChanged?.()
     } catch (err) {
@@ -104,14 +106,21 @@ export default function TripApplicants({ trip, onClose, onChanged }) {
               busyId={busyId}
               onApprove={approve}
               onDecline={setDeclining}
+              onMessage={onMessage}
             />
             <ApplicantGroup
               title="Confirmed"
               bookings={confirmed}
               busyId={busyId}
               onDecline={setDeclining}
+              onMessage={onMessage}
             />
-            <ApplicantGroup title="Cancelled" bookings={cancelled} busyId={busyId} />
+            <ApplicantGroup
+              title="Cancelled"
+              bookings={cancelled}
+              busyId={busyId}
+              onMessage={onMessage}
+            />
           </>
         )}
       </div>
@@ -128,7 +137,7 @@ export default function TripApplicants({ trip, onClose, onChanged }) {
   )
 }
 
-function ApplicantGroup({ title, bookings, busyId, onApprove, onDecline }) {
+function ApplicantGroup({ title, bookings, busyId, onApprove, onDecline, onMessage }) {
   if (bookings.length === 0) return null
 
   return (
@@ -143,13 +152,14 @@ function ApplicantGroup({ title, bookings, busyId, onApprove, onDecline }) {
           busy={busyId === booking.id}
           onApprove={onApprove}
           onDecline={onDecline}
+          onMessage={onMessage}
         />
       ))}
     </section>
   )
 }
 
-export function ApplicantCard({ booking, busy, onApprove, onDecline }) {
+export function ApplicantCard({ booking, busy, onApprove, onDecline, onMessage }) {
   const lead = booking.party.find((p) => p.lead) ?? booking.party[0]
   const companions = booking.party.filter((p) => !p.lead)
   const status = BOOKING_STATUS[booking.status]
@@ -167,6 +177,14 @@ export function ApplicantCard({ booking, busy, onApprove, onDecline }) {
         </div>
         <span className={`status-pill status-tone-${status.tone}`}>{status.label}</span>
       </header>
+
+      {booking.status === 'pending' && (
+        <p className={`payment-note payment-${booking.paymentStatus}`}>
+          {booking.paymentStatus === 'proof_sent'
+            ? 'Payment screenshot received in messages — check your account before approving.'
+            : 'Waiting for the traveller’s payment.'}
+        </p>
+      )}
 
       <dl className="applicant-facts">
         {lead?.phone && (
@@ -230,6 +248,17 @@ export function ApplicantCard({ booking, busy, onApprove, onDecline }) {
         </div>
       )}
 
+      {onMessage && booking.bookedBy && (
+        <button
+          type="button"
+          className="ghost-btn applicant-message"
+          onClick={() => onMessage(booking)}
+        >
+          <MessageIcon />
+          Message {booking.bookedBy.name.split(' ')[0]}
+        </button>
+      )}
+
       {(onApprove || onDecline) && (
         <div className="decision-row applicant-actions">
           {onDecline && (
@@ -250,7 +279,7 @@ export function ApplicantCard({ booking, busy, onApprove, onDecline }) {
               onClick={() => onApprove(booking)}
             >
               <CheckIcon />
-              {busy ? 'Saving…' : 'Approve'}
+              {busy ? 'Saving…' : 'Payment verified · Approve'}
             </button>
           )}
         </div>

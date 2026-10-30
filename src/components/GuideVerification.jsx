@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { api } from '../api/client.js'
 import { LANGUAGE_OPTIONS } from '../data/categories.js'
 import { CloseIcon, ShieldIcon } from './icons.jsx'
@@ -28,7 +28,47 @@ const DOCUMENTS = [
     hint: 'Only if your region requires one.',
     required: false,
   },
+  {
+    name: 'feeReceipt',
+    label: 'Subscription payment receipt',
+    hint: 'Screenshot or PDF of your yearly subscription payment to OGod.',
+    required: true,
+  },
 ]
+
+function formatRupees(amount) {
+  return `₹${Number(amount ?? 0).toLocaleString('en-IN')}`
+}
+
+/** The yearly fee and where to pay it, as configured by the admin. */
+function SubscriptionNotice({ renewal = false }) {
+  const [info, setInfo] = useState(null)
+
+  useEffect(() => {
+    api
+      .subscriptionInfo()
+      .then(({ subscription }) => setInfo(subscription))
+      .catch(() => setInfo(null))
+  }, [])
+
+  return (
+    <div className="subscription-notice">
+      <p className="subscription-notice-title">
+        {renewal ? 'Renew for another year' : 'Yearly guide subscription'}
+        {info && <strong>{formatRupees(info.fee)} / year</strong>}
+      </p>
+      {info?.upi ? (
+        <p>
+          Pay to OGod&apos;s UPI ID <strong className="subscription-upi">{info.upi}</strong>, then
+          upload the payment receipt. It&apos;s checked together with your
+          {renewal ? ' renewal.' : ' documents.'}
+        </p>
+      ) : (
+        <p>OGod&apos;s payment details aren&apos;t set up yet — please contact support before applying.</p>
+      )}
+    </div>
+  )
+}
 
 /** Doc §4 step 2: the verification application a guide submits for review. */
 export default function GuideVerification({ onClose, onSubmitted }) {
@@ -201,6 +241,7 @@ export default function GuideVerification({ onClose, onSubmitted }) {
 
           <div className="field">
             <span className="field-label">Documents</span>
+            <SubscriptionNotice />
             {DOCUMENTS.map((doc) => (
               <div key={doc.name} className="upload-row">
                 <div className="upload-copy">
@@ -243,7 +284,14 @@ export default function GuideVerification({ onClose, onSubmitted }) {
 }
 
 /** Doc §4 steps 5–7: what the guide sees about their own verification state. */
-export function GuideStatusCard({ user, application, onApply }) {
+function subscriptionState(user) {
+  if (!user.subscriptionUntil) return { active: false, daysLeft: 0 }
+  const end = new Date(`${user.subscriptionUntil}T23:59:59Z`)
+  const daysLeft = Math.ceil((end - Date.now()) / 86_400_000)
+  return { active: daysLeft > 0, daysLeft }
+}
+
+export function GuideStatusCard({ user, application, renewal, onApply, onRenew }) {
   if (user.guideStatus === 'none') {
     return (
       <div className="status-card">
@@ -317,8 +365,12 @@ export function GuideStatusCard({ user, application, onApply }) {
     )
   }
 
+  const { active, daysLeft } = subscriptionState(user)
+  const renewalPending = renewal?.status === 'pending'
+  const canRenew = !renewalPending && daysLeft <= 30
+
   return (
-    <div className="status-card status-card-verified">
+    <div className={`status-card ${active ? 'status-card-verified' : 'status-card-rejected'}`}>
       <div className="status-card-head">
         <ShieldIcon />
         <div>
@@ -326,9 +378,152 @@ export function GuideStatusCard({ user, application, onApply }) {
             Verified guide{user.certified && ' · Certified'}
           </h3>
           <p className="status-card-text">
-            Your profile is live and you can post trips.
+            {active
+              ? 'Your profile is live and you can post trips.'
+              : 'Your yearly subscription has expired, so you can’t post or open trips until you renew.'}
           </p>
         </div>
+      </div>
+      {user.subscriptionUntil && (
+        <p className="status-card-meta">
+          Subscription {active ? 'active until' : 'ended on'} {user.subscriptionUntil}
+          {active && daysLeft <= 30 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`}
+        </p>
+      )}
+      {renewalPending && <p className="status-card-meta">Renewal payment under review.</p>}
+      {renewal?.status === 'rejected' && !renewalPending && renewal.reviewNotes && (
+        <p className="status-card-meta">Last renewal not approved: {renewal.reviewNotes}</p>
+      )}
+      {canRenew && onRenew && (
+        <button type="button" className="submit" onClick={onRenew}>
+          Renew subscription
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** A yearly renewal: pay OGod, upload the receipt, and the admin extends it. */
+export function SubscriptionRenewal({ onClose, onSubmitted }) {
+  const [file, setFile] = useState(null)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!file) return setError('Upload the receipt for your payment')
+    const form = new FormData()
+    form.set('feeReceipt', file)
+    setSubmitting(true)
+    setError('')
+    try {
+      await api.renewSubscription(form)
+      onSubmitted()
+    } catch (err) {
+      setError(err.message)
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="edit-overlay">
+      <header className="edit-header">
+        <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
+          <CloseIcon />
+        </button>
+        <h2 className="edit-header-title">Renew subscription</h2>
+        <span className="edit-header-spacer" />
+      </header>
+      <div className="edit-body">
+        <form className="form" onSubmit={handleSubmit}>
+          <SubscriptionNotice renewal />
+          <div className="upload-row">
+            <div className="upload-copy">
+              <span className="upload-label">Payment receipt</span>
+              <span className="field-hint">Screenshot or PDF of the payment.</span>
+              {file && <span className="upload-filename">{file.name}</span>}
+            </div>
+            <label className="upload-btn">
+              {file ? 'Replace' : 'Upload'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] ?? null)
+                  setError('')
+                }}
+              />
+            </label>
+          </div>
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" className="submit" disabled={submitting}>
+            {submitting ? 'Sending…' : 'Submit for review'}
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/** Where travellers pay this guide — quoted in the automatic message after each booking. */
+export function PayoutDetails({ user, onClose, onSaved }) {
+  const [upi, setUpi] = useState(user.payoutUpi ?? '')
+  const [bank, setBank] = useState(user.payoutBank ?? '')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!upi.trim() && !bank.trim()) return setError('Add a UPI ID or bank details')
+    setSaving(true)
+    setError('')
+    try {
+      const { user: updated } = await api.updatePayout({ upi: upi.trim(), bank: bank.trim() })
+      onSaved(updated)
+    } catch (err) {
+      setError(err.message)
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="edit-overlay">
+      <header className="edit-header">
+        <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
+          <CloseIcon />
+        </button>
+        <h2 className="edit-header-title">Payment details</h2>
+        <span className="edit-header-spacer" />
+      </header>
+      <div className="edit-body">
+        <form className="form" onSubmit={handleSubmit}>
+          <p className="field-hint">
+            Travellers see these in the automatic message after they book, pay you directly, and
+            send you a screenshot. Approve a booking only once the money has reached you.
+          </p>
+          <label className="field">
+            <span className="field-label">UPI ID</span>
+            <input
+              value={upi}
+              onChange={(e) => setUpi(e.target.value)}
+              placeholder="yourname@okaxis"
+              autoCapitalize="none"
+            />
+          </label>
+          <label className="field">
+            <span className="field-label">Bank details (optional)</span>
+            <textarea
+              rows={3}
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+              placeholder="Account name, account number, IFSC"
+            />
+          </label>
+          {error && <p className="form-error">{error}</p>}
+          <button type="submit" className="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save payment details'}
+          </button>
+        </form>
       </div>
     </div>
   )

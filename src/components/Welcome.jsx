@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client.js'
 import { randomFact } from '../data/facts.js'
+import { TripCover } from './TripDetail.jsx'
 import { ArrowUpIcon, ChevronUpIcon, CompassIcon, StarIcon, VerifiedIcon } from './icons.jsx'
 
 /** Drag distance (px) past which releasing dismisses instead of springing back. */
@@ -155,7 +156,7 @@ export default function Welcome({ user, onDismiss }) {
         <div className="welcome-bento" aria-hidden="true">
           <div className="bento-col">
             <div className="bento-card bento-photo bento-tall">
-              {featured?.coverImage && <img src={featured.coverImage} alt="" decoding="async" />}
+              {featured && <TripCover trip={featured} loading="eager" />}
               <span className="bento-pill">
                 <StarIcon />
                 {featured ? featured.rating.toFixed(1) : 'Top rated'}
@@ -179,7 +180,7 @@ export default function Welcome({ user, onDismiss }) {
             </div>
 
             <div className="bento-card bento-photo bento-accent bento-tall">
-              {second?.coverImage && <img src={second.coverImage} alt="" decoding="async" />}
+              {second && <TripCover trip={second} loading="eager" />}
               <span className="bento-pill">Explore</span>
               {second && <span className="bento-photo-title">{second.destination}</span>}
             </div>

@@ -6,18 +6,26 @@ import {
   CANCELLABLE,
   DIFFICULTIES,
   LANGUAGE_OPTIONS,
-  CATEGORY_ICON,
   STATUS_ACTIONS,
   TRIP_CATEGORIES,
 } from '../data/categories.js'
 import BookTrip from './BookTrip.jsx'
+import { cancelBookingWithConfirm } from './cancelBooking.js'
+import { formatDateRange, timeAgo, tripCountdown } from '../data/dates.js'
+import { useNow } from '../hooks/useNow.js'
 import { BlogComposer, BlogDetailOverlay, BlogsAllOverlay, BlogsSection } from './Blogs.jsx'
-import GuideVerification, { GuideStatusCard } from './GuideVerification.jsx'
+import GuideVerification, {
+  GuideStatusCard,
+  PayoutDetails,
+  SubscriptionRenewal,
+} from './GuideVerification.jsx'
+import { ChatThread, MessagesInbox, useChatLauncher, useUnreadMessages } from './Messages.jsx'
 import TripApplicants from './TripApplicants.jsx'
 import TripForm from './TripForm.jsx'
 import TripDetail, {
   RatingBadge,
   StatusPill,
+  TripCover,
   TripThumbImage,
   formatPrice,
   getInitials,
@@ -27,6 +35,8 @@ import {
   ChevronRightIcon,
   CloseIcon,
   HomeIcon,
+  MessageIcon,
+  PenIcon,
   PlusIcon,
   ProfileIcon,
   SearchIcon,
@@ -56,7 +66,18 @@ const BASE_TABS = [
 ]
 
 /** Doc §6 step 2: the traveler-facing search filters, mapped to API query params. */
-const FILTERS = [
+export const FILTERS = [
+  {
+    // Trips starting within the next N days, counted from today on the server.
+    key: 'withinDays',
+    label: 'When',
+    options: [
+      { label: 'Next 2 weeks', value: 14 },
+      { label: 'Next month', value: 30 },
+      { label: 'Next 3 months', value: 90 },
+      { label: 'Next 6 months', value: 180 },
+    ],
+  },
   {
     key: 'maxPrice',
     label: 'Budget',
@@ -106,7 +127,11 @@ const TERMS_TEXT = [
   'These terms may be updated from time to time. Continued use of the app means you accept the latest version.',
 ]
 
-export default function Home({ user, onUserChange, onLogout }) {
+/**
+ * The phone app. `user` is null for a signed-out visitor, who can browse trips
+ * and stories; anything that needs an account calls `onSignIn` instead.
+ */
+export default function Home({ user, onUserChange, onLogout, onSignIn }) {
   const [activeTab, setActiveTab] = useState('home')
   const [trips, setTrips] = useState([])
   const [myTrips, setMyTrips] = useState([])
@@ -131,6 +156,20 @@ export default function Home({ user, onUserChange, onLogout }) {
   const [composingBlog, setComposingBlog] = useState(false)
   const [viewingBlog, setViewingBlog] = useState(null)
   const [viewingAllBlogs, setViewingAllBlogs] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const chat = useChatLauncher()
+  const [unreadMessages, refreshUnread] = useUnreadMessages(Boolean(user))
+  const [renewal, setRenewal] = useState(null)
+  const [renewing, setRenewing] = useState(false)
+  const [editingPayout, setEditingPayout] = useState(false)
+  const signedIn = Boolean(user)
+  const guideStatus = user?.guideStatus ?? 'none'
+
+  /** Tabs that only make sense with an account send visitors to sign in. */
+  function selectTab(key) {
+    if (!signedIn && (key === 'trips' || key === 'profile')) onSignIn('login')
+    else setActiveTab(key)
+  }
 
   const tabs = BASE_TABS
   const openFilterConfig = FILTERS.find((f) => f.key === openFilter) ?? null
@@ -186,24 +225,30 @@ export default function Home({ user, onUserChange, onLogout }) {
   }, [loadTrips])
 
   useEffect(() => {
-    loadMyTrips()
-  }, [loadMyTrips])
+    if (signedIn) loadMyTrips()
+  }, [loadMyTrips, signedIn])
 
   useEffect(() => {
-    loadBookings()
-  }, [loadBookings])
+    if (signedIn) loadBookings()
+  }, [loadBookings, signedIn])
 
   useEffect(() => {
     loadBlogs()
   }, [loadBlogs])
 
-  useEffect(() => {
-    if (user.guideStatus === 'none') return
+  const loadApplication = useCallback(() => {
     api
       .myApplication()
-      .then(({ application: row }) => setApplication(row))
+      .then(({ application: row, renewal: next }) => {
+        setApplication(row)
+        setRenewal(next)
+      })
       .catch(() => setApplication(null))
-  }, [user.guideStatus])
+  }, [])
+
+  useEffect(() => {
+    if (guideStatus !== 'none') loadApplication()
+  }, [guideStatus, loadApplication])
 
   const activeFilterCount = Object.keys(filterValues).length
 
@@ -236,10 +281,10 @@ export default function Home({ user, onUserChange, onLogout }) {
 
   /** Doc §4 step 6: the post button only opens the composer for a verified guide. */
   function handlePostIntent() {
-    if (user.canPostTrips) setTripFormState({ trip: null })
+    if (user?.canPostTrips) setTripFormState({ trip: null })
     else {
       setActiveTab('profile')
-      setApplying(user.guideStatus === 'none' || user.guideStatus === 'rejected')
+      setApplying(user?.guideStatus === 'none' || user?.guideStatus === 'rejected')
     }
   }
 
@@ -276,11 +321,22 @@ export default function Home({ user, onUserChange, onLogout }) {
     }
   }
 
-  async function handleBooked() {
+  async function handleCancelBooking(booking) {
+    try {
+      const updated = await cancelBookingWithConfirm(booking, booking.trip?.title ?? selectedTrip?.title)
+      if (updated) await Promise.all([loadBookings(), loadTrips()])
+    } catch (err) {
+      setLoadError(err.message)
+    }
+  }
+
+  async function handleBooked(_booking, conversationId) {
     setBookingTrip(null)
     // Seat counts on the feed change too, so refresh both.
     await Promise.all([loadBookings(), loadTrips()])
     setActiveTab('trips')
+    // The guide's automatic message has the payment details, so show it.
+    if (conversationId) chat.setChatId(conversationId)
   }
 
   function handleApplicationSubmitted(updatedUser) {
@@ -292,11 +348,29 @@ export default function Home({ user, onUserChange, onLogout }) {
     <div className="app-shell">
       <header className="app-header">
         <div className="greeting">
-          <h1 className="greeting-name">Hello, {user.name.split(' ')[0]}</h1>
+          <h1 className="greeting-name">
+            {user ? `Hello, ${user.name.split(' ')[0]}` : 'Discover trips'}
+          </h1>
           <p className="greeting-sub">
-            {user.canPostTrips ? 'Verified guide' : 'Welcome to OGod'}
+            {user?.canPostTrips ? 'Verified guide' : 'Book trips of your favorite places'}
           </p>
         </div>
+        {!user && (
+          <button type="button" className="header-signin" onClick={() => onSignIn('login')}>
+            Sign in
+          </button>
+        )}
+        {user && (
+        <>
+        <button
+          type="button"
+          className="header-icon-btn"
+          onClick={() => chat.setInboxOpen(true)}
+          aria-label={unreadMessages ? `Messages, ${unreadMessages} unread` : 'Messages'}
+        >
+          <MessageIcon />
+          {unreadMessages > 0 && <span className="header-badge">{unreadMessages}</span>}
+        </button>
         <button
           type="button"
           className="greeting-avatar"
@@ -304,12 +378,14 @@ export default function Home({ user, onUserChange, onLogout }) {
           aria-label="Your profile"
         >
           {getInitials(user.name)}
-          {user.canPostTrips && (
+          {user?.canPostTrips && (
             <span className="greeting-verified" aria-hidden="true">
               <VerifiedIcon />
             </span>
           )}
         </button>
+        </>
+        )}
       </header>
 
       <main className="app-content">
@@ -338,7 +414,7 @@ export default function Home({ user, onUserChange, onLogout }) {
             <BlogsSection
               blogs={blogs}
               loading={loadingBlogs}
-              onCompose={() => setComposingBlog(true)}
+              onCompose={() => (signedIn ? setComposingBlog(true) : onSignIn('login'))}
               onSelect={setViewingBlog}
               onSeeAll={() => setViewingAllBlogs(true)}
             />
@@ -381,11 +457,11 @@ export default function Home({ user, onUserChange, onLogout }) {
                       : 'No trips have been published yet.'}
                   </p>
                   <p className="field-hint">
-                    {user.canPostTrips
+                    {user?.canPostTrips
                       ? 'Post the first one and it will show up here.'
                       : 'Once verified guides publish trips, you can browse and book them here.'}
                   </p>
-                  {user.canPostTrips && (
+                  {user?.canPostTrips && (
                     <button
                       type="button"
                       className="submit empty-state-cta"
@@ -441,7 +517,9 @@ export default function Home({ user, onUserChange, onLogout }) {
             <GuideStatusCard
               user={user}
               application={application}
+              renewal={renewal}
               onApply={() => setApplying(true)}
+              onRenew={() => setRenewing(true)}
             />
 
             <div className="profile-details">
@@ -475,6 +553,34 @@ export default function Home({ user, onUserChange, onLogout }) {
             )}
 
             <div className="profile-menu">
+              {['verified', 'suspended'].includes(user.guideStatus) && (
+                <button
+                  type="button"
+                  className="profile-menu-item"
+                  onClick={() => setEditingPayout(true)}
+                >
+                  <span>
+                    Payment details
+                    {!user.payoutUpi && !user.payoutBank && (
+                      <span className="field-hint profile-menu-hint">
+                        Add these so travellers can pay you
+                      </span>
+                    )}
+                  </span>
+                  <ChevronRightIcon />
+                </button>
+              )}
+              <button
+                type="button"
+                className="profile-menu-item"
+                onClick={() => chat.setInboxOpen(true)}
+              >
+                <span>
+                  Messages
+                  {unreadMessages > 0 && <span className="pending-badge">{unreadMessages}</span>}
+                </span>
+                <ChevronRightIcon />
+              </button>
               <button
                 type="button"
                 className="profile-menu-item"
@@ -496,6 +602,19 @@ export default function Home({ user, onUserChange, onLogout }) {
             <button type="button" className="logout-link profile-logout" onClick={onLogout}>
               Log out
             </button>
+            <button
+              type="button"
+              className="logout-link profile-logout profile-logout-all"
+              onClick={async () => {
+                try {
+                  await api.logoutAll()
+                } finally {
+                  onLogout()
+                }
+              }}
+            >
+              Log out of all devices
+            </button>
           </div>
         )}
       </main>
@@ -506,15 +625,16 @@ export default function Home({ user, onUserChange, onLogout }) {
             key={tab.key}
             tab={tab}
             active={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => selectTab(tab.key)}
           />
         ))}
 
         <button
           type="button"
           className="nav-post"
-          aria-label={user.canPostTrips ? 'Post a trip' : 'Become a guide to post'}
-          onClick={handlePostIntent}
+          aria-label="Create"
+          aria-haspopup="dialog"
+          onClick={() => (signedIn ? setCreating(true) : onSignIn('login'))}
         >
           <PlusIcon />
         </button>
@@ -524,7 +644,7 @@ export default function Home({ user, onUserChange, onLogout }) {
             key={tab.key}
             tab={tab}
             active={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            onClick={() => selectTab(tab.key)}
           />
         ))}
       </nav>
@@ -559,6 +679,46 @@ export default function Home({ user, onUserChange, onLogout }) {
                 Clear selection
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {creating && (
+        <div className="sheet-backdrop" onClick={() => setCreating(false)}>
+          <div className="sheet" role="dialog" aria-label="Create" onClick={(e) => e.stopPropagation()}>
+            <div className="sheet-handle" />
+            <h3 className="sheet-title">Create</h3>
+            <div className="sheet-options">
+              <CreateOption
+                Icon={PenIcon}
+                title="Share a travel story"
+                text="Post photos or a video from a trip to the home feed."
+                onClick={() => {
+                  setCreating(false)
+                  setComposingBlog(true)
+                }}
+              />
+              {user?.canPostTrips && (
+                <CreateOption
+                  Icon={TripsIcon}
+                  title="Post a trip"
+                  text="List a new trip for travellers to book."
+                  onClick={() => {
+                    setCreating(false)
+                    setTripFormState({ trip: null })
+                  }}
+                />
+              )}
+              <CreateOption
+                Icon={MessageIcon}
+                title="Messages"
+                text="Chat with guides and travellers, and share photos."
+                onClick={() => {
+                  setCreating(false)
+                  chat.setInboxOpen(true)
+                }}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -618,6 +778,27 @@ export default function Home({ user, onUserChange, onLogout }) {
         />
       )}
 
+      {renewing && (
+        <SubscriptionRenewal
+          onClose={() => setRenewing(false)}
+          onSubmitted={() => {
+            setRenewing(false)
+            loadApplication()
+          }}
+        />
+      )}
+
+      {editingPayout && (
+        <PayoutDetails
+          user={user}
+          onClose={() => setEditingPayout(false)}
+          onSaved={(updated) => {
+            onUserChange(updated)
+            setEditingPayout(false)
+          }}
+        />
+      )}
+
       {applying && (
         <GuideVerification
           onClose={() => setApplying(false)}
@@ -640,11 +821,16 @@ export default function Home({ user, onUserChange, onLogout }) {
           booking={bookings.find(
             (b) => b.trip.id === selectedTrip.id && b.status !== 'cancelled',
           )}
-          showStatus={selectedTrip.guide?.id === user.id}
+          showStatus={selectedTrip.guide?.id === user?.id}
           onApply={(trip) => {
+            if (!signedIn) return onSignIn('login')
             setSelectedTrip(null)
             setBookingTrip(trip)
           }}
+          onMessageGuide={(trip) =>
+            signedIn ? chat.openChatWith(trip.guide.id, trip.id) : onSignIn('login')
+          }
+          onCancelBooking={signedIn ? handleCancelBooking : undefined}
           onClose={() => setSelectedTrip(null)}
         />
       )}
@@ -663,6 +849,7 @@ export default function Home({ user, onUserChange, onLogout }) {
           trip={applicantsTrip}
           onClose={() => setApplicantsTrip(null)}
           onChanged={loadMyTrips}
+          onMessage={(booking) => chat.openChatWith(booking.bookedBy.id, applicantsTrip.id)}
         />
       )}
 
@@ -688,6 +875,10 @@ export default function Home({ user, onUserChange, onLogout }) {
         <BlogDetailOverlay
           blog={viewingBlog}
           currentUser={user}
+          onRequireAuth={() => onSignIn('login')}
+          onVoted={(updated) =>
+            setBlogs((prev) => prev.map((b) => (b.id === updated.id ? updated : b)))
+          }
           onClose={() => setViewingBlog(null)}
           onDeleted={() => {
             setViewingBlog(null)
@@ -696,7 +887,48 @@ export default function Home({ user, onUserChange, onLogout }) {
           }}
         />
       )}
+
+      {chat.inboxOpen && (
+        <MessagesInbox
+          onOpen={chat.setChatId}
+          onClose={() => {
+            chat.setInboxOpen(false)
+            refreshUnread()
+          }}
+        />
+      )}
+
+      {chat.chatId && (
+        <ChatThread
+          conversationId={chat.chatId}
+          onClose={() => {
+            chat.setChatId(null)
+            refreshUnread()
+          }}
+        />
+      )}
+
+      {chat.error && (
+        <button type="button" className="chat-toast" onClick={() => chat.setError('')}>
+          {chat.error}
+        </button>
+      )}
     </div>
+  )
+}
+
+function CreateOption({ Icon, title, text, onClick }) {
+  return (
+    <button type="button" className="sheet-option create-option" onClick={onClick}>
+      <span className="create-option-icon">
+        <Icon />
+      </span>
+      <span className="create-option-text">
+        <strong>{title}</strong>
+        <span>{text}</span>
+      </span>
+      <ChevronRightIcon />
+    </button>
   )
 }
 
@@ -720,25 +952,25 @@ function NavButton({ tab, active, onClick }) {
  * a card that floats over the bottom of the image.
  */
 function HeroTripCard({ trip, onSelect }) {
-  const Icon = CATEGORY_ICON[trip.category] ?? TripsIcon
   const seatsLeft = trip.seatsLeft ?? trip.maxGroupSize
+  const now = useNow()
 
   return (
     <article className="hero-card">
       <div className="hero-media">
-        {trip.coverImage ? (
-          <img src={trip.coverImage} alt="" loading="lazy" />
-        ) : (
-          <span className="hero-media-fallback" aria-hidden="true">
-            <Icon />
-          </span>
-        )}
+        <TripCover trip={trip} />
         <span className="hero-tag">{trip.category}</span>
       </div>
 
       <div className="hero-panel">
         <p className="hero-destination">{trip.destination}</p>
         <h3 className="hero-title">{trip.title}</h3>
+        {trip.startDate && (
+          <p className="hero-dates">
+            {formatDateRange(trip.startDate, trip.endDate)}
+            <span>{tripCountdown(trip, now)}</span>
+          </p>
+        )}
 
         <div className="hero-meta">
           {trip.reviewCount > 0 ? (
@@ -776,7 +1008,10 @@ function TripRow({ trip, onClick, showStatus }) {
       </div>
       <div className="trip-row-info">
         <h3 className="trip-row-title">{trip.title}</h3>
-        <p className="trip-row-location">{trip.destination}</p>
+        <p className="trip-row-location">
+          {trip.startDate ? `${formatDateRange(trip.startDate, trip.endDate)} · ` : ''}
+          {trip.destination}
+        </p>
         <div className="trip-row-meta">
           {showStatus ? <StatusPill status={trip.status} /> : <RatingBadge rating={trip.rating} />}
           <span>
@@ -984,7 +1219,12 @@ function BookingGroup({ title, bookings, onSelectTrip }) {
 function BookingRow({ booking, onClick }) {
   const { trip } = booking
   const status = BOOKING_STATUS[booking.status]
-  const date = (booking.completedAt ?? booking.bookedAt)?.slice(0, 10)
+  const now = useNow()
+  const date = trip.startDate
+    ? `${formatDateRange(trip.startDate, trip.endDate)}${
+        booking.status === 'pending' || booking.status === 'confirmed' ? ` · ${tripCountdown(trip, now)}` : ''
+      }`
+    : `Booked ${timeAgo(booking.bookedAt, now)}`
 
   return (
     <button type="button" className="trip-row" onClick={onClick}>

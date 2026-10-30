@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import { db } from '../db.js'
 import { authenticate } from '../auth.js'
-import { TRIP_QUERY, mapTrip } from './trips.js'
+import { TRIP_QUERY, bookingWindowOpen, mapTrip } from './trips.js'
+import { postSystemMessage } from './messages.js'
+import { bookingReference, renderTicket } from '../ticket.js'
 import { getSettings } from '../settings.js'
 
 const router = Router()
@@ -22,6 +24,28 @@ function priceBooking(pricePerPerson, travelers) {
   const serviceFee = round2(base * feeRate)
   const tax = round2((base + serviceFee) * taxRate)
   return { base, serviceFee, tax, total: round2(base + serviceFee + tax) }
+}
+
+function formatAmount(amount, currency) {
+  const value = Number(amount ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })
+  return currency === 'INR' ? `₹${value}` : `${currency} ${value}`
+}
+
+/** The automatic message from the guide after a booking: thanks, amount and where to pay. */
+function paymentRequestText({ travelerName, tripTitle, travelers, total, currency, guide }) {
+  const lines = [
+    `Hi ${travelerName.split(' ')[0]}, thanks for booking ${tripTitle} for ${travelers} ${travelers === 1 ? 'traveller' : 'travellers'}!`,
+    '',
+    `To confirm your seats, please pay ${formatAmount(total, currency)} to me:`,
+  ]
+  if (guide.payout_upi) lines.push(`UPI: ${guide.payout_upi}`)
+  if (guide.payout_bank) lines.push(`Bank: ${guide.payout_bank}`)
+  if (!guide.payout_upi && !guide.payout_bank) lines.push('I’ll share my payment details here shortly.')
+  lines.push(
+    '',
+    'Once you’ve paid, send a screenshot of the payment in this chat. I’ll confirm your booking as soon as I’ve verified it.',
+  )
+  return lines.join('\n')
 }
 
 function loadTravelers(bookingId) {
@@ -45,6 +69,9 @@ function mapBooking(row, travelers) {
   return {
     id: row.booking_id,
     status: row.booking_status,
+    reference: bookingReference(row.booking_id),
+    paymentStatus: row.payment_status,
+    cancelledBy: row.cancelled_by,
     travelers: row.travelers,
     totalPaid: row.total_paid,
     serviceFee: row.service_fee,
@@ -62,7 +89,8 @@ function mapBooking(row, travelers) {
 }
 
 const BOOKING_SELECT = `
-  SELECT b.id AS booking_id, b.status AS booking_status, b.travelers, b.total_paid,
+  SELECT b.id AS booking_id, b.status AS booking_status, b.payment_status, b.cancelled_by,
+         b.travelers, b.total_paid,
          b.service_fee, b.tax, b.notes, b.guide_note, b.booked_at, b.completed_at,
          bu.id AS booker_id, bu.name AS booker_name, bu.email AS booker_email,
          sub.*
@@ -118,7 +146,8 @@ router.get('/requests', authenticate, (req, res) => {
 function loadForGuide(bookingId, user) {
   const row = db
     .prepare(
-      `SELECT b.*, t.guide_id, t.max_group_size
+      `SELECT b.*, t.guide_id, t.max_group_size, t.status AS trip_status, t.title AS trip_title,
+              t.start_date AS trip_start
          FROM bookings b JOIN trips t ON t.id = b.trip_id
         WHERE b.id = ?`,
     )
@@ -144,10 +173,36 @@ router.post('/:id/approve', authenticate, (req, res) => {
   if (row.status !== 'pending') {
     return res.status(409).json({ error: `This booking is already ${row.status}` })
   }
+  if (!['booking_open', 'booking_closed', 'confirmed'].includes(row.trip_status)) {
+    return res.status(409).json({
+      error: `This trip is ${row.trip_status.replace('_', ' ')} and can't take new travellers`,
+    })
+  }
+  // The guide approves only once they've checked the traveller's payment;
+  // `paymentReceived` records that check as part of the same action.
+  if (row.payment_status !== 'received' && !req.body?.paymentReceived) {
+    return res.status(409).json({
+      error: 'Check the traveller’s payment before approving',
+      code: 'payment_unverified',
+    })
+  }
 
-  db.prepare(
-    "UPDATE bookings SET status = 'confirmed', guide_note = ? WHERE id = ?",
-  ).run(String(req.body?.note ?? '').trim() || null, row.id)
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE bookings SET status = 'confirmed', payment_status = 'received', guide_note = ? WHERE id = ?",
+    ).run(String(req.body?.note ?? '').trim() || null, row.id)
+
+    postSystemMessage({
+      travelerId: row.user_id,
+      guideId: row.guide_id,
+      tripId: row.trip_id,
+      bookingId: row.id,
+      kind: 'ticket',
+      body: `Payment received — your booking for ${row.trip_title} is confirmed! Your ticket is below.${
+        row.trip_start ? ` See you on ${row.trip_start}.` : ''
+      }`,
+    })
+  })()
 
   respondWithBooking(res, row.id, 200)
 })
@@ -164,15 +219,78 @@ router.post('/:id/decline', authenticate, (req, res) => {
   const note = String(req.body?.note ?? '').trim()
   if (!note) return res.status(400).json({ error: 'Give the traveller a reason' })
 
-  db.prepare("UPDATE bookings SET status = 'cancelled', guide_note = ? WHERE id = ?").run(note, row.id)
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE bookings SET status = 'cancelled', cancelled_by = 'guide', guide_note = ? WHERE id = ?",
+    ).run(note, row.id)
+    postSystemMessage({
+      travelerId: row.user_id,
+      guideId: row.guide_id,
+      tripId: row.trip_id,
+      bookingId: row.id,
+      kind: 'text',
+      body: `Sorry, I can’t accept your booking for ${row.trip_title}. ${note}`,
+    })
+  })()
 
   respondWithBooking(res, row.id, 200)
 })
 
-/** Live price breakdown so the form never shows a total the server won't charge. */
-router.get('/quote', authenticate, (req, res) => {
+/**
+ * The traveller withdraws their own request or booking, any time before the
+ * trip starts. The guide is told in their chat, with a refund nudge if the
+ * traveller had already paid.
+ */
+router.post('/:id/cancel', authenticate, (req, res) => {
+  const row = db
+    .prepare(
+      `SELECT b.*, t.guide_id, t.title AS trip_title, t.start_date AS trip_start
+         FROM bookings b JOIN trips t ON t.id = b.trip_id
+        WHERE b.id = ?`,
+    )
+    .get(Number(req.params.id))
+  if (!row || row.user_id !== req.user.id) return res.status(404).json({ error: 'Booking not found' })
+  if (!['pending', 'confirmed'].includes(row.status)) {
+    return res.status(409).json({ error: `This booking is already ${row.status}` })
+  }
+  if (row.trip_start && new Date().toISOString().slice(0, 10) >= row.trip_start) {
+    return res.status(409).json({
+      error: 'This trip has already started, so it can’t be cancelled here. Message your guide instead.',
+    })
+  }
+
+  const reason = String(req.body?.reason ?? '').trim().slice(0, 500)
+  const lines = [
+    `I’ve cancelled my ${row.status === 'confirmed' ? 'booking' : 'booking request'} for ${row.trip_title} (${row.travelers} ${row.travelers === 1 ? 'traveller' : 'travellers'}).`,
+  ]
+  if (reason) lines.push(`Reason: ${reason}`)
+  if (row.payment_status !== 'unpaid') lines.push('I’ve already paid — please arrange my refund.')
+
+  db.transaction(() => {
+    db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_by = 'traveler' WHERE id = ?").run(row.id)
+    postSystemMessage({
+      travelerId: row.user_id,
+      guideId: row.guide_id,
+      tripId: row.trip_id,
+      bookingId: row.id,
+      kind: 'text',
+      body: lines.join('\n'),
+      senderId: row.user_id,
+    })
+  })()
+
+  respondWithBooking(res, row.id, 200)
+})
+
+/**
+ * Live price breakdown so the form never shows a total the server won't charge.
+ * Public, so signed-out visitors on the website can price a trip before signing in.
+ */
+router.get('/quote', (req, res) => {
   const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(Number(req.query.trip))
-  if (!trip) return res.status(404).json({ error: 'Trip not found' })
+  if (!trip || !['published', 'booking_open', 'booking_closed'].includes(trip.status)) {
+    return res.status(404).json({ error: 'Trip not found' })
+  }
 
   const travelers = Number(req.query.travelers)
   if (!Number.isInteger(travelers) || travelers < 1) {
@@ -196,6 +314,9 @@ router.post('/', authenticate, (req, res) => {
   }
   if (trip.status !== 'booking_open') {
     return res.status(409).json({ error: 'This trip is not open for bookings' })
+  }
+  if (!bookingWindowOpen(trip)) {
+    return res.status(409).json({ error: 'Bookings for this trip have closed' })
   }
 
   const existing = db
@@ -248,8 +369,8 @@ router.post('/', authenticate, (req, res) => {
   }
 
   const price = priceBooking(trip.price_per_person, travelers)
-  // Doc §6 step 6: Instant Book confirms straight away, otherwise the guide approves.
-  const status = trip.instant_book ? 'confirmed' : 'pending'
+  // Every booking waits until the guide has checked the payment and approved it.
+  const status = 'pending'
 
   const bookingId = db.transaction(() => {
     const result = db
@@ -287,8 +408,48 @@ router.post('/', authenticate, (req, res) => {
     return result.lastInsertRowid
   })()
 
+  // The guide's automatic reply: thanks, the amount, and where to pay.
+  const guide = db
+    .prepare('SELECT name, payout_upi, payout_bank FROM users WHERE id = ?')
+    .get(trip.guide_id)
+  const conversationId = postSystemMessage({
+    travelerId: req.user.id,
+    guideId: trip.guide_id,
+    tripId: trip.id,
+    bookingId,
+    kind: 'booking_request',
+    body: paymentRequestText({
+      travelerName: cleaned[0].name,
+      tripTitle: trip.title,
+      travelers,
+      total: price.total,
+      currency: trip.currency,
+      guide,
+    }),
+  })
+
   const row = db.prepare(`${BOOKING_SELECT} WHERE b.id = ?`).get(bookingId)
-  res.status(201).json({ booking: mapBooking(row, loadTravelers(bookingId)), quote: price })
+  res.status(201).json({
+    booking: mapBooking(row, loadTravelers(bookingId)),
+    quote: price,
+    conversationId,
+  })
+})
+
+/** The PDF ticket, for the traveller, their guide or an admin, once confirmed. */
+router.get('/:id/ticket', authenticate, (req, res) => {
+  const row = db.prepare(`${BOOKING_SELECT} WHERE b.id = ?`).get(Number(req.params.id))
+  const allowed =
+    row && (row.booker_id === req.user.id || row.guide_id === req.user.id || req.user.role === 'admin')
+  if (!allowed) return res.status(404).json({ error: 'Booking not found' })
+  if (!['confirmed', 'completed'].includes(row.booking_status)) {
+    return res.status(409).json({ error: 'The ticket is issued once the guide confirms the booking' })
+  }
+
+  const guide = db.prepare('SELECT name, phone FROM users WHERE id = ?').get(row.guide_id)
+  res.set('Content-Type', 'application/pdf')
+  res.set('Content-Disposition', `attachment; filename="${bookingReference(row.booking_id)}.pdf"`)
+  renderTicket(mapBooking(row, loadTravelers(row.booking_id)), guide, res)
 })
 
 export default router

@@ -11,22 +11,32 @@ import {
   WildlifeIcon,
 } from '../components/icons.jsx'
 
+// `image` is the stand-in cover for a trip posted without one (public/images/categories).
 export const TRIP_CATEGORIES = [
-  { label: 'Mountains', Icon: MountainsIcon },
-  { label: 'Beach', Icon: BeachIcon },
-  { label: 'Road Trips', Icon: RoadTripIcon },
-  { label: 'Wildlife', Icon: WildlifeIcon },
-  { label: 'City & Urban', Icon: CityIcon },
-  { label: 'Adventure', Icon: AdventureIcon },
-  { label: 'Culture', Icon: CultureIcon },
-  { label: 'Backpacking', Icon: BackpackIcon },
-  { label: 'Luxury', Icon: LuxuryIcon },
-  { label: 'Food & Cuisine', Icon: FoodIcon },
+  { label: 'Mountains', Icon: MountainsIcon, image: 'mountains' },
+  { label: 'Beach', Icon: BeachIcon, image: 'beach' },
+  { label: 'Road Trips', Icon: RoadTripIcon, image: 'road-trips' },
+  { label: 'Wildlife', Icon: WildlifeIcon, image: 'wildlife' },
+  { label: 'City & Urban', Icon: CityIcon, image: 'city' },
+  { label: 'Adventure', Icon: AdventureIcon, image: 'adventure' },
+  { label: 'Culture', Icon: CultureIcon, image: 'culture' },
+  { label: 'Backpacking', Icon: BackpackIcon, image: 'backpacking' },
+  { label: 'Luxury', Icon: LuxuryIcon, image: 'luxury' },
+  { label: 'Food & Cuisine', Icon: FoodIcon, image: 'food' },
 ]
 
 export const CATEGORY_ICON = Object.fromEntries(
   TRIP_CATEGORIES.map(({ label, Icon }) => [label, Icon]),
 )
+
+const CATEGORY_IMAGE = Object.fromEntries(
+  TRIP_CATEGORIES.map(({ label, image }) => [label, `/images/categories/${image}.jpg`]),
+)
+
+/** The photo shown for a trip when it has no cover of its own (or its cover fails to load). */
+export function categoryImage(category) {
+  return CATEGORY_IMAGE[category] ?? CATEGORY_IMAGE.Mountains
+}
 
 export const DIFFICULTIES = ['easy', 'moderate', 'challenging', 'strenuous']
 

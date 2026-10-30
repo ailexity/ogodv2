@@ -2,7 +2,8 @@ import path from 'node:path'
 import { Router } from 'express'
 import { db, UPLOADS_DIR, isLastEnabledAdmin } from '../db.js'
 import { authenticate, publicUser, requireAdmin } from '../auth.js'
-import { hashPassword } from '../password.js'
+import { hashPassword, passwordProblem } from '../password.js'
+import { parseAge } from '../validate.js'
 import { mapApplication } from './guides.js'
 import { BLOG_QUERY, mapBlog } from './blogs.js'
 import { SETTING_DEFINITIONS, getSettings, updateSettings } from '../settings.js'
@@ -51,10 +52,24 @@ function decide(applicationId, decision, adminId, notes, certified) {
         WHERE id = ?`,
     ).run(decision, notes, adminId, applicationId)
 
-    if (decision === 'approved') {
+    if (application.kind === 'renewal') {
+      // A renewal only extends the subscription by a year from whichever is
+      // later, today or the current end; rejecting it leaves the guide as is.
+      if (decision === 'approved') {
+        db.prepare(
+          `UPDATE users
+              SET subscription_until = date(MAX(COALESCE(subscription_until, date('now')), date('now')), '+1 year')
+            WHERE id = ?`,
+        ).run(application.user_id)
+      }
+    } else if (decision === 'approved') {
       // Doc §4 step 6: approval flips the profile live and unlocks "Post a Trip".
+      // An admin who applies keeps their admin role.
       db.prepare(
-        "UPDATE users SET guide_status = 'verified', role = 'guide', certified = ? WHERE id = ?",
+        `UPDATE users SET guide_status = 'verified', certified = ?,
+                subscription_until = date('now', '+1 year'),
+                role = CASE WHEN role = 'admin' THEN 'admin' ELSE 'guide' END
+          WHERE id = ?`,
       ).run(certified ? 1 : 0, application.user_id)
     } else {
       db.prepare("UPDATE users SET guide_status = 'rejected' WHERE id = ?").run(application.user_id)
@@ -223,6 +238,9 @@ router.patch('/users/:id', (req, res) => {
     return res.status(400).json({ error: 'Enter a valid email address' })
   }
 
+  const { age: parsedAge, error: ageError } = parseAge(age)
+  if (ageError) return res.status(400).json({ error: ageError })
+
   const emailOwner = db.prepare('SELECT id FROM users WHERE email = ?').get(normalisedEmail)
   if (emailOwner && emailOwner.id !== target.id) {
     return res.status(409).json({ error: 'Another account already uses this email' })
@@ -235,7 +253,7 @@ router.patch('/users/:id', (req, res) => {
     normalisedEmail,
     String(phone ?? '').trim() || null,
     String(address ?? '').trim() || null,
-    age ? Number(age) : null,
+    parsedAge,
     String(bio ?? '').trim() || null,
     target.id,
   )
@@ -256,22 +274,47 @@ router.patch('/users/:id/role', (req, res) => {
     return res.status(409).json({ error: 'At least one admin must remain' })
   }
 
-  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, target.id)
+  db.transaction(() => {
+    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, target.id)
+    // Posting rights follow guide_status, so it has to move with the role.
+    if (role === 'guide' && target.guide_status !== 'suspended') {
+      db.prepare("UPDATE users SET guide_status = 'verified' WHERE id = ?").run(target.id)
+    } else if (role === 'traveler' && ['verified', 'suspended'].includes(target.guide_status)) {
+      db.prepare("UPDATE users SET guide_status = 'none', certified = 0 WHERE id = ?").run(target.id)
+      db.prepare(
+        `UPDATE trips SET status = 'booking_closed', updated_at = datetime('now')
+          WHERE guide_id = ? AND status IN ('published', 'booking_open')`,
+      ).run(target.id)
+    }
+  })()
   res.json({ user: publicUser(loadUser(target.id)) })
 })
 
-/** There is no email flow in this app, so an admin reset hands the new password to the admin to relay. */
+/**
+ * An admin reset hands the new password to the admin to relay; people can also
+ * reset their own by email. Either way, every existing session is signed out.
+ */
 router.post('/users/:id/reset-password', (req, res) => {
   const target = loadUser(Number(req.params.id))
   if (!target) return res.status(404).json({ error: 'User not found' })
 
   const password = String(req.body?.password ?? '')
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' })
-  }
+  const problem = passwordProblem(password)
+  if (problem) return res.status(400).json({ error: problem })
 
-  db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), target.id)
+  db.prepare(
+    'UPDATE users SET password_hash = ?, token_version = token_version + 1 WHERE id = ?',
+  ).run(hashPassword(password), target.id)
   res.json({ ok: true })
+})
+
+/** For someone who can't receive the confirmation email — the admin vouches for the address. */
+router.post('/users/:id/verify-email', (req, res) => {
+  const target = loadUser(Number(req.params.id))
+  if (!target) return res.status(404).json({ error: 'User not found' })
+
+  db.prepare('UPDATE users SET email_verified = 1 WHERE id = ?').run(target.id)
+  res.json({ user: publicUser(loadUser(target.id)) })
 })
 
 router.post('/users/:id/disable', (req, res) => {
@@ -307,7 +350,25 @@ router.delete('/users/:id', (req, res) => {
     return res.status(409).json({ error: 'At least one admin must remain' })
   }
 
-  db.prepare('DELETE FROM users WHERE id = ?').run(target.id)
+  // Deleting a guide cascades to their trips, which would silently wipe other
+  // travellers' bookings.
+  const activeBookings = db
+    .prepare(
+      `SELECT COUNT(*) AS n FROM bookings b JOIN trips t ON t.id = b.trip_id
+        WHERE t.guide_id = ? AND b.user_id != ? AND b.status IN ('pending', 'confirmed')`,
+    )
+    .get(target.id, target.id).n
+  if (activeBookings > 0) {
+    return res.status(409).json({
+      error: `This guide has ${activeBookings} active booking(s) from other travellers. Cancel their trips first.`,
+    })
+  }
+
+  db.transaction(() => {
+    // Older databases have no ON DELETE rule on reviewed_by, so clear it by hand.
+    db.prepare('UPDATE guide_applications SET reviewed_by = NULL WHERE reviewed_by = ?').run(target.id)
+    db.prepare('DELETE FROM users WHERE id = ?').run(target.id)
+  })()
   res.json({ ok: true })
 })
 

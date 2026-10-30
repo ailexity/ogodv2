@@ -3,6 +3,7 @@ import { api } from '../api/client.js'
 import { GENDER_OPTIONS } from '../data/categories.js'
 import { formatMoney } from './TripDetail.jsx'
 import { CloseIcon } from './icons.jsx'
+import { formatDateRange } from '../data/dates.js'
 
 function emptyTraveler() {
   return { name: '', age: '', gender: '' }
@@ -81,8 +82,8 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
 
     setSubmitting(true)
     try {
-      const { booking } = await api.createBooking({ tripId: trip.id, notes, party })
-      onBooked(booking)
+      const { booking, conversationId } = await api.createBooking({ tripId: trip.id, notes, party })
+      onBooked(booking, conversationId)
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
@@ -106,6 +107,9 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
             {trip.destination}
             {trip.durationDays ? ` · ${trip.durationDays} days` : ''}
           </p>
+          {trip.startDate && (
+            <p className="book-trip-meta">{formatDateRange(trip.startDate, trip.endDate)}</p>
+          )}
           <p className="book-trip-meta">
             {formatMoney(trip.pricePerPerson, trip.currency)} per person ·{' '}
             {seatsLeft} {seatsLeft === 1 ? 'seat' : 'seats'} left
@@ -270,16 +274,15 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
               <p className="field-hint">Calculating…</p>
             )}
             <p className="field-hint">
-              {trip.instantBook
-                ? 'This trip has Instant Book — your seat is confirmed straight away.'
-                : 'Your guide reviews and approves this request before it is confirmed.'}
+              Your guide will message you with payment details. Pay them directly and send a
+              screenshot in the chat — they confirm your seats once they&apos;ve checked it.
             </p>
           </div>
 
           {error && <p className="form-error">{error}</p>}
 
           <button className="submit" type="submit" disabled={submitting}>
-            {submitting ? 'Sending…' : trip.instantBook ? 'Confirm booking' : 'Send booking request'}
+            {submitting ? 'Sending…' : 'Send booking request'}
           </button>
         </form>
       </div>

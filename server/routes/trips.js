@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { db } from '../db.js'
-import { authenticate, optionalAuth, requireVerifiedGuide } from '../auth.js'
+import { authenticate, optionalAuth, requireVerifiedGuide, subscriptionActive } from '../auth.js'
 
 const router = Router()
 
@@ -23,7 +23,7 @@ const DISCOVERABLE = ['published', 'booking_open', 'booking_closed']
 const DIFFICULTIES = ['easy', 'moderate', 'challenging', 'strenuous']
 
 export const TRIP_QUERY = `
-  SELECT t.*, u.name AS guide_name, u.email AS guide_email, u.bio AS guide_bio,
+  SELECT t.*, u.name AS guide_name, u.bio AS guide_bio,
          u.guide_status AS guide_status, u.certified AS guide_certified,
          (SELECT COALESCE(SUM(b.travelers), 0)
             FROM bookings b
@@ -36,6 +36,14 @@ export const TRIP_QUERY = `
     FROM trips t
     JOIN users u ON u.id = t.guide_id
 `
+
+/** Bookings close at the deadline, and in any case once the trip has started. */
+export function bookingWindowOpen(row) {
+  const today = new Date().toISOString().slice(0, 10)
+  if (row.booking_deadline && today > row.booking_deadline) return false
+  if (row.start_date && today >= row.start_date) return false
+  return true
+}
 
 export function mapTrip(row, itinerary) {
   if (!row) return null
@@ -61,7 +69,11 @@ export function mapTrip(row, itinerary) {
     startDate: row.start_date,
     endDate: row.end_date,
     bookingDeadline: row.booking_deadline,
-    instantBook: Boolean(row.instant_book),
+    // What the Book button needs: open status, inside the booking window, seats left.
+    bookable:
+      row.status === 'booking_open' &&
+      bookingWindowOpen(row) &&
+      row.max_group_size - (row.booked_seats ?? 0) > 0,
     rating: row.rating,
     reviewCount: row.review_count,
     bookedSeats: row.booked_seats ?? 0,
@@ -73,7 +85,6 @@ export function mapTrip(row, itinerary) {
     guide: {
       id: row.guide_id,
       name: row.guide_name,
-      email: row.guide_email,
       bio: row.guide_bio,
       verified: row.guide_status === 'verified',
       certified: Boolean(row.guide_certified),
@@ -125,6 +136,16 @@ function validateTripInput(body) {
     return { error: 'Difficulty must be easy, moderate, challenging or strenuous' }
   }
 
+  const startDate = String(body?.startDate ?? '').trim() || null
+  const endDate = String(body?.endDate ?? '').trim() || null
+  const bookingDeadline = String(body?.bookingDeadline ?? '').trim() || null
+  if (startDate && endDate && endDate < startDate) {
+    return { error: 'The end date cannot be before the start date' }
+  }
+  if (startDate && bookingDeadline && bookingDeadline > startDate) {
+    return { error: 'The booking deadline cannot be after the start date' }
+  }
+
   const itinerary = Array.isArray(body?.itinerary)
     ? body.itinerary
         .map((day) => ({
@@ -152,13 +173,20 @@ function validateTripInput(body) {
       included: JSON.stringify(asList(body?.included)),
       excluded: JSON.stringify(asList(body?.excluded)),
       highlights: JSON.stringify(asList(body?.highlights)),
-      start_date: String(body?.startDate ?? '').trim() || null,
-      end_date: String(body?.endDate ?? '').trim() || null,
-      booking_deadline: String(body?.bookingDeadline ?? '').trim() || null,
-      instant_book: body?.instantBook ? 1 : 0,
+      start_date: startDate,
+      end_date: endDate,
+      booking_deadline: bookingDeadline,
+      // Instant Book is retired: every booking waits for payment and the guide's approval.
+      instant_book: 0,
     },
     itinerary,
   }
+}
+
+/** A start date that is set (or being changed) must be after today. */
+function startDateProblem(startDate, previousStart = null) {
+  if (!startDate || startDate === previousStart) return null
+  return startDate <= new Date().toISOString().slice(0, 10) ? 'The start date must be in the future' : null
 }
 
 function replaceItinerary(tripId, itinerary) {
@@ -171,9 +199,14 @@ function replaceItinerary(tripId, itinerary) {
 
 /** Doc §6 step 2: discovery feed with the traveler-facing search filters. */
 router.get('/', optionalAuth, (req, res) => {
-  const { q, category, difficulty, language, minPrice, maxPrice, minRating, groupSize } = req.query
+  const { q, category, difficulty, language, minPrice, maxPrice, minRating, groupSize, withinDays } =
+    req.query
 
-  const clauses = [`t.status IN (${DISCOVERABLE.map(() => '?').join(', ')})`]
+  // Trips that have already started are no longer worth showing in the feed.
+  const clauses = [
+    `t.status IN (${DISCOVERABLE.map(() => '?').join(', ')})`,
+    "(t.start_date IS NULL OR t.start_date > date('now'))",
+  ]
   const params = [...DISCOVERABLE]
 
   if (q) {
@@ -203,6 +236,11 @@ router.get('/', optionalAuth, (req, res) => {
   if (minRating) {
     clauses.push('t.rating >= ?')
     params.push(Number(minRating))
+  }
+  // "When": trips starting within the next N days.
+  if (Number(withinDays) > 0) {
+    clauses.push("t.start_date IS NOT NULL AND t.start_date <= date('now', ?)")
+    params.push(`+${Math.floor(Number(withinDays))} days`)
   }
   if (groupSize) {
     clauses.push('t.min_group_size <= ? AND t.max_group_size >= ?')
@@ -243,6 +281,9 @@ router.post('/', authenticate, requireVerifiedGuide, (req, res) => {
   const parsed = validateTripInput(req.body)
   if (parsed.error) return res.status(400).json({ error: parsed.error })
 
+  const pastStart = startDateProblem(parsed.values.start_date)
+  if (pastStart) return res.status(400).json({ error: pastStart })
+
   const status = req.body?.status === 'published' ? 'published' : 'draft'
   const values = parsed.values
 
@@ -269,7 +310,7 @@ router.post('/', authenticate, requireVerifiedGuide, (req, res) => {
 })
 
 /** Doc §5 step 9: guides edit their own future trips. */
-router.patch('/:id', authenticate, (req, res) => {
+router.patch('/:id', authenticate, requireVerifiedGuide, (req, res) => {
   const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(Number(req.params.id))
   if (!trip) return res.status(404).json({ error: 'Trip not found' })
   if (trip.guide_id !== req.user.id) return res.status(403).json({ error: 'This is not your trip' })
@@ -279,6 +320,20 @@ router.patch('/:id', authenticate, (req, res) => {
 
   const parsed = validateTripInput({ ...mapTrip(trip), ...req.body })
   if (parsed.error) return res.status(400).json({ error: parsed.error })
+  const pastStart = startDateProblem(parsed.values.start_date, trip.start_date)
+  if (pastStart) return res.status(400).json({ error: pastStart })
+
+  const booked = db
+    .prepare(
+      `SELECT COALESCE(SUM(travelers), 0) AS n FROM bookings
+        WHERE trip_id = ? AND status IN ('pending', 'confirmed', 'completed')`,
+    )
+    .get(trip.id).n
+  if (parsed.values.max_group_size < booked) {
+    return res.status(409).json({
+      error: `${booked} seats are already booked, so the group size can't go below that`,
+    })
+  }
 
   db.transaction(() => {
     db.prepare(
@@ -317,14 +372,45 @@ router.post('/:id/status', authenticate, (req, res) => {
       allowed,
     })
   }
-  if (next !== 'draft' && trip.status === 'draft' && req.user.guide_status !== 'verified') {
-    return res.status(403).json({ error: 'Only verified guides can publish trips' })
+  // Checked against the trip's guide, not the caller: a suspended guide's trips
+  // must not go back on sale, and an admin may publish a verified guide's draft.
+  if (['published', 'booking_open'].includes(next)) {
+    const owner = db
+      .prepare('SELECT guide_status, subscription_until FROM users WHERE id = ?')
+      .get(trip.guide_id)
+    if (owner?.guide_status !== 'verified') {
+      return res.status(403).json({ error: 'Only verified guides can publish or open bookings' })
+    }
+    if (!subscriptionActive(owner)) {
+      return res.status(403).json({ error: 'The guide’s yearly subscription has expired' })
+    }
   }
 
   const reason = next === 'cancelled' ? String(req.body?.reason ?? '').trim() || null : null
-  db.prepare(
-    "UPDATE trips SET status = ?, cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
-  ).run(next, reason, trip.id)
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE trips SET status = ?, cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
+    ).run(next, reason, trip.id)
+
+    // Bookings follow the trip: cancelling releases everyone, and completing
+    // turns confirmed seats into attended trips.
+    if (next === 'cancelled') {
+      db.prepare(
+        `UPDATE bookings SET status = 'cancelled', cancelled_by = 'trip', guide_note = ?
+          WHERE trip_id = ? AND status IN ('pending', 'confirmed')`,
+      ).run(reason ? `Trip cancelled: ${reason}` : 'The trip was cancelled', trip.id)
+    } else if (next === 'completed') {
+      db.prepare(
+        `UPDATE bookings SET status = 'completed', completed_at = datetime('now')
+          WHERE trip_id = ? AND status = 'confirmed'`,
+      ).run(trip.id)
+      db.prepare(
+        `UPDATE bookings SET status = 'cancelled', cancelled_by = 'trip',
+                guide_note = 'The trip ended before this request was approved'
+          WHERE trip_id = ? AND status = 'pending'`,
+      ).run(trip.id)
+    }
+  })()
 
   const row = db.prepare(`${TRIP_QUERY} WHERE t.id = ?`).get(trip.id)
   res.json({ trip: mapTrip(row, loadItinerary(trip.id)) })

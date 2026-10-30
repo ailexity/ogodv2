@@ -15,6 +15,68 @@ export function CloseIcon() {
   )
 }
 
+export function ThumbUpIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3Z" />
+      <path d="M7 10l4-7a2 2 0 0 1 2.9 2.2L13 9h5.6a2 2 0 0 1 2 2.4l-1.5 7.5a2 2 0 0 1-2 1.6H7" />
+    </svg>
+  )
+}
+
+export function ThumbDownIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M17 14V3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3Z" />
+      <path d="M17 14l-4 7a2 2 0 0 1-2.9-2.2L11 15H5.4a2 2 0 0 1-2-2.4l1.5-7.5a2 2 0 0 1 2-1.6H17" />
+    </svg>
+  )
+}
+
+export function TicketIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4V8Z" />
+      <path d="M14 6v12" strokeDasharray="2 2" />
+    </svg>
+  )
+}
+
+export function MessageIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M21 12a8 8 0 0 1-11.6 7.14L4 20.5l1.36-5.4A8 8 0 1 1 21 12Z" />
+    </svg>
+  )
+}
+
+export function ImageIcon() {
+  return (
+    <svg {...stroke}>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="9" cy="10" r="1.75" />
+      <path d="m21 16-5-5-8 9" />
+    </svg>
+  )
+}
+
+export function SendIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M5 12h13M12 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+export function PenIcon() {
+  return (
+    <svg {...stroke}>
+      <path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16v4Z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  )
+}
+
 export function ChevronLeftIcon() {
   return (
     <svg {...stroke}>

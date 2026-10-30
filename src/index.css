@@ -40,6 +40,21 @@
   box-sizing: border-box;
 }
 
+/* No pinch or double-tap zoom anywhere in the app. */
+html {
+  touch-action: pan-x pan-y;
+}
+
+/* iOS zooms into any field whose text is under 16px when it is tapped, so on
+   touch screens every field is at least 16px. */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 html,
 body,
 #root {
@@ -320,6 +335,51 @@ body {
   font-size: 13px;
   font-weight: 600;
   color: var(--danger);
+}
+
+/* A full-width message above a form (e.g. an expired link). */
+.form-banner {
+  margin: 0 0 16px;
+}
+
+.form-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--success) 12%, transparent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.form-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+/* Google renders its own button (an iframe) into the slot; keep it centred. */
+.google-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.google-signin-slot {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.google-signin-slot[hidden] {
+  display: none;
+}
+
+.google-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 /* ---------- App shell ------------------------------------------------- */
@@ -934,6 +994,12 @@ body {
 .profile-logout {
   align-self: center;
   margin-top: 4px;
+}
+
+.profile-logout-all {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-soft);
 }
 
 .sheet-body {
@@ -1769,7 +1835,7 @@ body {
 .auth-hero-image {
   position: absolute;
   inset: 0;
-  background-image: url('https://loremflickr.com/1200/1600/mountains');
+  background-image: url('/images/auth-hero.jpg');
   background-size: cover;
   background-position: center;
 }
@@ -2325,6 +2391,11 @@ body {
 
 /* ---------- Settings ---------------------------------------------------- */
 
+.password-form {
+  max-width: 420px;
+  margin-top: 12px;
+}
+
 .setting-list {
   display: flex;
   flex-direction: column;
@@ -2799,22 +2870,6 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
-}
-
-/* No stock imagery ships with the app, so a coverless trip shows its
-   category mark rather than a broken or borrowed photo. */
-.hero-media-fallback {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.hero-media-fallback svg {
-  width: 56px;
-  height: 56px;
 }
 
 .hero-tag {
@@ -3786,4 +3841,814 @@ body {
     width: 42px;
     height: 42px;
   }
+}
+
+/* ---------- Create sheet (the "+" button) ------------------------------- */
+
+.create-option {
+  gap: 14px;
+  justify-content: flex-start;
+  padding: 14px 2px;
+}
+
+.create-option > svg {
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.create-option-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--surface-alt);
+}
+
+.create-option-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.create-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.create-option-text strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.create-option-text span {
+  font-size: 13px;
+  color: var(--ink-faint);
+}
+
+/* ---------- Messages ---------------------------------------------------- */
+
+.header-icon-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.header-icon-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.header-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-pill);
+  background: var(--violet);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+.trip-detail-message,
+.applicant-message {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.applicant-message {
+  margin: 12px 0 0;
+}
+
+.trip-detail-message svg,
+.applicant-message svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-overlay {
+  z-index: 70;
+}
+
+.chat-inbox {
+  padding-top: 4px;
+  overscroll-behavior: contain;
+}
+
+/* Header and composer keep their size; only the message list scrolls. */
+.chat-overlay > .edit-header,
+.chat-composer {
+  flex-shrink: 0;
+}
+
+.chat-inbox-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.chat-avatar {
+  width: 46px;
+  height: 46px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.chat-avatar-sm {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+
+.chat-inbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-inbox-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.chat-inbox-name,
+.chat-header-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.chat-inbox-name svg,
+.chat-header-name svg {
+  width: 14px;
+  height: 14px;
+  color: var(--violet);
+}
+
+.chat-inbox-time {
+  font-size: 12px;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+}
+
+.chat-inbox-trip,
+.chat-inbox-preview,
+.chat-header-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-inbox-trip {
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.chat-inbox-preview {
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.chat-inbox-preview.unread {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.chat-header {
+  justify-content: flex-start;
+}
+
+.chat-header-who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chat-header-name {
+  margin: 0;
+}
+
+.chat-header-sub {
+  margin: 1px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--surface-alt);
+}
+
+.chat-empty {
+  margin: auto;
+  max-width: 280px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-faint);
+}
+
+.chat-bubble-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  max-width: 80%;
+}
+
+.chat-bubble-row.mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-bubble {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 18px 18px 18px 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.mine .chat-bubble {
+  border-color: var(--ink);
+  border-radius: 18px 18px 6px 18px;
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.chat-bubble p {
+  margin: 0;
+  padding: 9px 14px;
+  font-size: 15px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.chat-image {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.chat-image-loading {
+  display: block;
+  width: 220px;
+  height: 160px;
+  background: var(--border);
+}
+
+.chat-image-missing {
+  display: block;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+.chat-time {
+  padding: 0 4px;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.chat-composer {
+  padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-error {
+  margin: 0 0 8px;
+}
+
+.chat-attachment {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.chat-attachment img {
+  display: block;
+  height: 84px;
+  border-radius: 12px;
+}
+
+.chat-attachment button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--accent-contrast);
+  cursor: pointer;
+}
+
+.chat-attachment button svg {
+  width: 12px;
+  height: 12px;
+}
+
+.chat-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.chat-composer-row textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 120px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-alt);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--ink);
+  resize: none;
+  outline: none;
+  field-sizing: content;
+}
+
+.chat-composer-row textarea:focus {
+  border-color: var(--ink);
+  background: var(--surface);
+}
+
+.chat-icon-btn,
+.chat-send-btn {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.chat-icon-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chat-send-btn {
+  border: none;
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.chat-send-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.chat-icon-btn svg,
+.chat-send-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.chat-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  z-index: 80;
+  transform: translateX(-50%);
+  max-width: min(420px, calc(100% - 32px));
+  padding: 12px 18px;
+  border: none;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 14px;
+  box-shadow: var(--shadow-float);
+  cursor: pointer;
+}
+
+/* ---------- Guest browsing ---------------------------------------------- */
+
+.header-signin {
+  height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- Blog votes -------------------------------------------------- */
+
+.blog-votes {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.blog-votes-compact {
+  margin: 10px 0 0;
+}
+
+.vote-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vote-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.vote-btn-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--accent-contrast);
+}
+
+.blog-votes-compact .vote-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+.blog-card-votes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--ink-faint);
+}
+
+.blog-card-votes svg {
+  width: 13px;
+  height: 13px;
+}
+
+.blog-card-votes svg + svg,
+.blog-card-votes svg:nth-of-type(2) {
+  margin-left: 8px;
+}
+
+/* ---------- Payments, subscription and booking cards --------------------- */
+
+.subscription-notice {
+  margin-bottom: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--violet);
+  border-radius: 14px;
+  background: var(--violet-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.subscription-notice p {
+  margin: 0;
+}
+
+.subscription-notice-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px !important;
+  font-weight: 600;
+}
+
+.subscription-upi {
+  user-select: all;
+}
+
+.payment-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.payment-note.payment-proof_sent {
+  background: var(--violet-soft);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.profile-menu-hint {
+  display: block;
+  margin-top: 2px;
+}
+
+.admin-kind-tag {
+  margin-left: 8px;
+  padding: 3px 8px;
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.setting-text {
+  height: 40px;
+  min-width: 200px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-alt);
+  font: inherit;
+  font-size: 15px;
+}
+
+.chat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 8px 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.chat-card-title svg {
+  width: 17px;
+  height: 17px;
+}
+
+.chat-card-meta {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.chat-card-status {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.chat-card-status-confirmed {
+  background: #e7f6ec;
+  color: #1a7f37;
+  font-weight: 600;
+}
+
+.chat-card-status-cancelled {
+  color: var(--danger);
+}
+
+.chat-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.chat-card-btn {
+  height: 38px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-card-actions .chat-card-btn {
+  margin-top: 0;
+}
+
+.chat-card-btn-ghost {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.chat-card-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---------- Trip and story frames: square corners, photo fills the frame -- */
+
+.hero-card,
+.hero-panel,
+.trip-thumb,
+.trip-thumb-sm,
+.trip-detail-hero,
+.trip-row,
+.blog-card,
+.blog-detail-media {
+  border-radius: 0;
+}
+
+.hero-media img,
+.trip-thumb-img,
+.blog-card-media img,
+.blog-card-media video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* A fixed 4:3 frame, like the trip photos, instead of each photo's own shape. */
+.blog-detail-media {
+  aspect-ratio: 4 / 3;
+}
+
+.blog-detail-media img,
+.blog-detail-media video {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+}
+
+.blog-detail-media img {
+  object-fit: cover;
+}
+
+/* Cropping would cut off a video's own picture, so it letterboxes instead. */
+.blog-detail-media video {
+  object-fit: contain;
+  background: #000;
+}
+
+/* ---------- Dates and cancelling --------------------------------------- */
+
+.trip-countdown {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--violet-soft);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hero-dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.hero-dates span {
+  font-weight: 500;
+  color: var(--violet);
+}
+
+.date-summary {
+  margin: -4px 0 4px;
+  color: var(--ink);
+}
+
+.apply-btn-danger {
+  border: 1px solid var(--danger);
+  background: var(--surface);
+  color: var(--danger);
+}
+
+/* With dates added the detail has up to five facts: three per row, wrapping. */
+.trip-detail-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.trip-detail-stat {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+
+.trip-countdown {
+  margin: 10px 0 6px;
+}
+
+.apply-price {
+  flex: 1;
+  overflow: hidden;
+}
+
+.apply-amount,
+.apply-note {
+  white-space: nowrap;
+}
+
+.apply-btn-danger {
+  padding: 0 18px;
+}
+
+/* ---------- Trip detail: full-width cover that zooms on scroll ----------- */
+
+.trip-detail-body {
+  overflow-x: hidden;
+  /* Pulling down at the top zooms the photo instead of dragging the page behind. */
+  overscroll-behavior-y: contain;
+}
+
+/* Cancels the body's 20px padding so the photo runs edge to edge, flush under the header. */
+.trip-detail-hero {
+  width: auto;
+  margin: -20px -20px 20px;
+  border: none;
+  transform-origin: center bottom;
+}
+
+.trip-detail-hero .trip-thumb-img {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* While stretched, the frame's height is set inline; the photo fills it. */
+.trip-detail-hero[style*="height"] {
+  aspect-ratio: auto;
 }

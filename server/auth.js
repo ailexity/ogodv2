@@ -4,7 +4,8 @@ import { randomBytes } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { db, DATA_DIR } from './db.js'
 
-const TOKEN_TTL = '7d'
+// "Remember me" keeps a session for 30 days; otherwise it lasts a day.
+const TOKEN_TTL = { remember: '30d', session: '1d' }
 
 function loadSecret() {
   if (process.env.OGOD_JWT_SECRET) return process.env.OGOD_JWT_SECRET
@@ -20,10 +21,22 @@ function loadSecret() {
 
 const SECRET = loadSecret()
 
-export function signToken(user) {
-  return jwt.sign({ sub: user.id, email: user.email, role: user.role }, SECRET, {
-    expiresIn: TOKEN_TTL,
-  })
+export function signToken(user, { remember = false } = {}) {
+  return jwt.sign(
+    { sub: user.id, email: user.email, role: user.role, ver: user.token_version ?? 0 },
+    SECRET,
+    { expiresIn: remember ? TOKEN_TTL.remember : TOKEN_TTL.session },
+  )
+}
+
+/** A token minted before the user's last password change no longer counts. */
+function isCurrent(payload, row) {
+  return (payload.ver ?? 0) === (row.token_version ?? 0)
+}
+
+/** A guide's yearly platform subscription still covers today. */
+export function subscriptionActive(row) {
+  return Boolean(row?.subscription_until) && row.subscription_until >= new Date().toISOString().slice(0, 10)
 }
 
 export function publicUser(row) {
@@ -41,8 +54,14 @@ export function publicUser(row) {
     languages: JSON.parse(row.languages ?? '[]'),
     guideStatus: row.guide_status,
     certified: Boolean(row.certified),
-    canPostTrips: row.guide_status === 'verified',
+    canPostTrips: row.guide_status === 'verified' && subscriptionActive(row),
+    subscriptionUntil: row.subscription_until,
+    payoutUpi: row.payout_upi,
+    payoutBank: row.payout_bank,
     disabled: Boolean(row.disabled),
+    emailVerified: Boolean(row.email_verified),
+    hasPassword: Boolean(row.password_hash),
+    googleLinked: Boolean(row.google_id),
   }
 }
 
@@ -60,6 +79,9 @@ export function authenticate(req, res, next) {
 
   const row = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub)
   if (!row) return res.status(401).json({ error: 'Account no longer exists' })
+  if (!isCurrent(payload, row)) {
+    return res.status(401).json({ error: 'Your password was changed, please sign in again' })
+  }
   if (row.disabled) return res.status(403).json({ error: 'This account has been disabled' })
 
   req.user = row
@@ -72,7 +94,8 @@ export function optionalAuth(req, _res, next) {
   if (token) {
     try {
       const payload = jwt.verify(token, SECRET)
-      req.user = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub) ?? undefined
+      const row = db.prepare('SELECT * FROM users WHERE id = ?').get(payload.sub)
+      if (row && isCurrent(payload, row) && !row.disabled) req.user = row
     } catch {
       // An invalid token on a public route is treated as a signed-out visitor.
     }
@@ -93,6 +116,12 @@ export function requireVerifiedGuide(req, res, next) {
     return res.status(403).json({
       error: 'Only verified guides can post trips',
       guideStatus: req.user.guide_status,
+    })
+  }
+  if (!subscriptionActive(req.user)) {
+    return res.status(403).json({
+      error: 'Your yearly guide subscription has expired. Renew it from your profile to keep posting trips.',
+      code: 'subscription_expired',
     })
   }
   next()

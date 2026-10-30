@@ -6,6 +6,15 @@ import {
   TRIP_CATEGORIES,
 } from '../data/categories.js'
 import { CloseIcon, PlusIcon } from './icons.jsx'
+import {
+  addDays,
+  daysBetween,
+  deadlineCountdown,
+  formatDate,
+  formatDateRange,
+  todayISO,
+  tripCountdown,
+} from '../data/dates.js'
 
 function initialState(trip) {
   return {
@@ -21,7 +30,6 @@ function initialState(trip) {
     startDate: trip?.startDate ?? '',
     endDate: trip?.endDate ?? '',
     bookingDeadline: trip?.bookingDeadline ?? '',
-    instantBook: trip?.instantBook ?? false,
     included: (trip?.included ?? []).join('\n'),
     excluded: (trip?.excluded ?? []).join('\n'),
     highlights: (trip?.highlights ?? []).join('\n'),
@@ -49,7 +57,16 @@ export default function TripForm({ trip, onClose, onSaved }) {
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    setForm((prev) => {
+      const next = { ...prev, [name]: type === 'checkbox' ? checked : value }
+      // Keep the dates consistent as the start moves: the end can't come before
+      // it, and bookings must close before it.
+      if (name === 'startDate' && value) {
+        if (next.endDate && next.endDate < value) next.endDate = value
+        if (next.bookingDeadline && next.bookingDeadline > value) next.bookingDeadline = addDays(value, -1)
+      }
+      return next
+    })
     setError('')
   }
 
@@ -103,8 +120,10 @@ export default function TripForm({ trip, onClose, onSaved }) {
       highlights: toLines(form.highlights),
       startDate: form.startDate,
       endDate: form.endDate,
+      // Duration follows from the dates when both are set.
+      ...(form.startDate &&
+        form.endDate && { durationDays: daysBetween(form.startDate, form.endDate) + 1 }),
       bookingDeadline: form.bookingDeadline,
-      instantBook: form.instantBook,
       itinerary: itinerary.filter((day) => day.title.trim()),
     }
 
@@ -300,24 +319,52 @@ export default function TripForm({ trip, onClose, onSaved }) {
             <div className="field-row">
               <label className="field">
                 <span className="field-label">Start date</span>
-                <input type="date" name="startDate" value={form.startDate} onChange={handleChange} />
+                <input
+                  type="date"
+                  name="startDate"
+                  min={addDays(todayISO(), 1)}
+                  value={form.startDate}
+                  onChange={handleChange}
+                />
               </label>
 
               <label className="field">
                 <span className="field-label">End date</span>
-                <input type="date" name="endDate" value={form.endDate} onChange={handleChange} />
+                <input
+                  type="date"
+                  name="endDate"
+                  min={form.startDate || addDays(todayISO(), 1)}
+                  value={form.endDate}
+                  onChange={handleChange}
+                />
               </label>
             </div>
+            {form.startDate && (
+              <p className="field-hint date-summary">
+                {formatDateRange(form.startDate, form.endDate)}
+                {form.endDate &&
+                  ` · ${daysBetween(form.startDate, form.endDate) + 1} ${
+                    form.startDate === form.endDate ? 'day' : 'days'
+                  }`}
+                {` · ${tripCountdown({ startDate: form.startDate, endDate: form.endDate })}`}
+              </p>
+            )}
 
             <label className="field">
               <span className="field-label">Booking deadline</span>
               <input
                 type="date"
                 name="bookingDeadline"
+                min={todayISO()}
+                max={form.startDate ? addDays(form.startDate, -1) : undefined}
                 value={form.bookingDeadline}
                 onChange={handleChange}
               />
-              <span className="field-hint">Bookings close automatically after this date.</span>
+              <span className="field-hint">
+                {form.bookingDeadline
+                  ? `${deadlineCountdown({ bookingDeadline: form.bookingDeadline })} — they close automatically after ${formatDate(form.bookingDeadline)}.`
+                  : 'Bookings close automatically after this date, and in any case when the trip starts.'}
+              </span>
             </label>
 
             <div className="field">
@@ -359,18 +406,6 @@ export default function TripForm({ trip, onClose, onSaved }) {
               </div>
             </div>
 
-            <label className="sheet-option checkbox-row">
-              <span>
-                Instant Book
-                <span className="field-hint">Travelers book without waiting for your approval.</span>
-              </span>
-              <input
-                type="checkbox"
-                name="instantBook"
-                checked={form.instantBook}
-                onChange={handleChange}
-              />
-            </label>
           </div>
 
           <div className="form-section">
