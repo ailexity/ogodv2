@@ -1,8 +1,40 @@
+import { randomBytes } from 'node:crypto'
+import path from 'node:path'
 import { Router } from 'express'
-import { db } from '../db.js'
+import multer from 'multer'
+import { db, TRIP_MEDIA_DIR } from '../db.js'
 import { authenticate, optionalAuth, requireVerifiedGuide, subscriptionActive } from '../auth.js'
+import { rateLimit } from '../rate-limit.js'
 
 const router = Router()
+
+const COVER_TYPES = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }
+
+const coverUpload = multer({
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, TRIP_MEDIA_DIR),
+    filename: (_req, file, cb) => cb(null, randomBytes(16).toString('hex') + COVER_TYPES[file.mimetype]),
+  }),
+  fileFilter: (_req, file, cb) => {
+    if (!COVER_TYPES[file.mimetype]) {
+      const error = new Error('Use a JPG, PNG or WEBP photo for the cover')
+      error.expose = true
+      cb(error)
+      return
+    }
+    cb(null, true)
+  },
+})
+
+const coverLimit = rateLimit({ windowMinutes: 60, max: 30, key: (req) => String(req.user.id) })
+
+/**
+ * Covers are either one of the bundled photos under /images or a photo a guide
+ * uploaded here. Anything else (an outside URL) is refused, so a listing can't
+ * make every visitor's browser load a third-party address.
+ */
+const COVER_PATTERN = /^(\/images\/[\w/.-]+\.(jpg|jpeg|png|webp)|\/api\/trips\/media\/[a-f0-9]{32}\.(jpg|png|webp))$/
 
 /** Doc §7 trip lifecycle. Each key lists the statuses it may move to next. */
 const TRANSITIONS = {
@@ -146,6 +178,11 @@ function validateTripInput(body) {
     return { error: 'The booking deadline cannot be after the start date' }
   }
 
+  const coverImage = String(body?.coverImage ?? '').trim() || null
+  if (coverImage && !COVER_PATTERN.test(coverImage)) {
+    return { error: 'Upload the cover photo from the trip form' }
+  }
+
   const itinerary = Array.isArray(body?.itinerary)
     ? body.itinerary
         .map((day) => ({
@@ -161,7 +198,7 @@ function validateTripInput(body) {
       destination,
       category,
       description,
-      cover_image: String(body?.coverImage ?? '').trim() || null,
+      cover_image: coverImage,
       duration_days: body?.durationDays ? Number(body.durationDays) : itinerary.length || null,
       meeting_point: String(body?.meetingPoint ?? '').trim() || null,
       min_group_size: minGroupSize,
@@ -255,6 +292,22 @@ router.get('/', optionalAuth, (req, res) => {
 })
 
 /** A guide's own listings, across every status including drafts. */
+/** Stores a cover photo and returns its URL, which the trip form then saves as `coverImage`. */
+router.post('/cover', authenticate, requireVerifiedGuide, coverLimit, coverUpload.single('cover'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Choose a photo to upload' })
+  res.status(201).json({ url: `/api/trips/media/${req.file.filename}` })
+})
+
+router.get('/media/:filename', (req, res) => {
+  const { filename } = req.params
+  if (!/^[a-f0-9]{32}\.(jpg|png|webp)$/.test(filename)) {
+    return res.status(400).json({ error: 'Invalid media reference' })
+  }
+  res.sendFile(path.join(TRIP_MEDIA_DIR, filename), { maxAge: '30d', immutable: true }, (error) => {
+    if (error && !res.headersSent) res.status(404).json({ error: 'Media not found' })
+  })
+})
+
 router.get('/mine', authenticate, (req, res) => {
   const rows = db
     .prepare(`${TRIP_QUERY} WHERE t.guide_id = ? ORDER BY t.updated_at DESC`)

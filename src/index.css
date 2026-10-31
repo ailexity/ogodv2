@@ -1814,7 +1814,7 @@ body {
 }
 
 /* ==========================================================================
-   Auth screens — mountain photo hero over a white content column
+   Auth screens — mountain photo hero, form on a sheet that overlaps it
    ========================================================================== */
 
 .auth-page {
@@ -1827,7 +1827,7 @@ body {
 .auth-hero {
   position: relative;
   flex-shrink: 0;
-  height: clamp(210px, 34vh, 330px);
+  height: clamp(240px, 38vh, 360px);
   overflow: hidden;
   background: var(--surface-alt);
 }
@@ -1840,49 +1840,80 @@ body {
   background-position: center;
 }
 
-.auth-hero-fade {
+/* Darkens the bottom of the photo so the white brand and tagline stay legible
+   on any part of the image. */
+.auth-hero-shade {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 42%;
-  background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--bg) 88%);
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(17, 17, 20, 0.08) 35%, rgba(17, 17, 20, 0.62));
+}
+
+/* Sits at the bottom of the photo, so the top-left corner stays free for the
+   "Back to trips" button. Bottom padding clears the overlapping sheet. */
+.auth-hero-copy {
+  position: absolute;
+  right: 20px;
+  bottom: 48px;
+  left: 20px;
+  color: #ffffff;
 }
 
 .auth-brand {
-  position: absolute;
-  top: max(18px, env(safe-area-inset-top));
-  left: 18px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 14px 6px 6px;
-  border-radius: var(--radius-pill);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
+  gap: 10px;
 }
 
 .brand-mark-auth {
-  width: 28px;
-  height: 28px;
-  font-size: 14px;
-  border-radius: 9px;
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--ink);
 }
 
 .auth-brand .brand-name {
+  font-size: 18px;
+  color: #ffffff;
+}
+
+.auth-tagline {
+  margin: 8px 0 0;
   font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.9);
+  text-wrap: balance;
+}
+
+/* The pitch only fits on the desktop side panel. */
+.auth-points {
+  display: none;
 }
 
 .auth-body {
+  position: relative;
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: 4px 20px calc(28px + env(safe-area-inset-bottom));
+  margin-top: -28px;
+  padding: 32px 20px calc(28px + env(safe-area-inset-bottom));
+  border-radius: 28px 28px 0 0;
+  background: var(--bg);
 }
 
 .auth-content {
   width: 100%;
   max-width: 420px;
+  animation: auth-in 0.35s ease;
+}
+
+@keyframes auth-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .auth-heading {
@@ -1976,15 +2007,61 @@ body {
     height: 100dvh;
   }
 
-  .auth-hero-fade {
-    display: none;
+  .auth-hero-copy {
+    right: 56px;
+    bottom: 56px;
+    left: 56px;
+  }
+
+  .auth-tagline {
+    max-width: 15ch;
+    margin-top: 22px;
+    font-size: clamp(32px, 3vw, 44px);
+    font-weight: 700;
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+  }
+
+  .auth-points {
+    display: grid;
+    gap: 12px;
+    margin: 26px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 15px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.88);
+  }
+
+  .auth-points li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .auth-point-icon {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .auth-point-icon svg {
+    width: 13px;
+    height: 13px;
   }
 
   .auth-body {
     width: 54%;
     min-height: 100dvh;
     align-items: center;
+    margin-top: 0;
     padding: 56px;
+    border-radius: 0;
   }
 
   .auth-heading {
@@ -1999,7 +2076,11 @@ body {
 /* Short landscape phones: shrink the hero so the form stays reachable. */
 @media (max-height: 620px) and (max-width: 899px) {
   .auth-hero {
-    height: 150px;
+    height: 170px;
+  }
+
+  .auth-tagline {
+    display: none;
   }
 
   .auth-heading {
@@ -5121,4 +5202,49 @@ button {
 /* Keeps scrolled-to steps clear of the sticky header and floating nav. */
 .app-content [data-tour] {
   scroll-margin: 96px 0 110px;
+}
+
+/* ---------- Trip cover photo -------------------------------------------- */
+
+/* Change and Remove share the corner that the story composer's Remove uses. */
+.cover-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.cover-actions .media-remove {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* ---------- Auth screen details ------------------------------------------ */
+
+.auth-page .checkbox input {
+  accent-color: var(--ink);
+}
+
+.auth-page .submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

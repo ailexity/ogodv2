@@ -72,6 +72,7 @@ export default function ForgotPassword({ onBackToLogin }) {
           {error && <p className="form-error">{error}</p>}
 
           <button className="submit" type="submit" disabled={submitting}>
+            {submitting && <span className="spinner" aria-hidden="true" />}
             {submitting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>

@@ -86,6 +86,7 @@ export default function ResetPassword({ token, onDone, onRequestNewLink }) {
           </button>
         ) : (
           <button className="submit" type="submit" disabled={submitting}>
+            {submitting && <span className="spinner" aria-hidden="true" />}
             {submitting ? 'Saving…' : 'Save new password'}
           </button>
         )}

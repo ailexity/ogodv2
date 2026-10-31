@@ -9,11 +9,13 @@ export const DATA_DIR = path.join(serverDir, 'data')
 export const UPLOADS_DIR = path.join(serverDir, 'uploads')
 export const BLOG_MEDIA_DIR = path.join(serverDir, 'blog-media')
 export const CHAT_MEDIA_DIR = path.join(serverDir, 'chat-media')
+export const TRIP_MEDIA_DIR = path.join(serverDir, 'trip-media')
 
 mkdirSync(DATA_DIR, { recursive: true })
 mkdirSync(UPLOADS_DIR, { recursive: true })
 mkdirSync(BLOG_MEDIA_DIR, { recursive: true })
 mkdirSync(CHAT_MEDIA_DIR, { recursive: true })
+mkdirSync(TRIP_MEDIA_DIR, { recursive: true })
 
 export const db = new Database(path.join(DATA_DIR, 'ogod.db'))
 db.pragma('journal_mode = WAL')

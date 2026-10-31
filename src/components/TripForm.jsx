@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { api } from '../api/client.js'
 import {
   DIFFICULTIES,
   LANGUAGE_OPTIONS,
   TRIP_CATEGORIES,
 } from '../data/categories.js'
-import { CloseIcon, PlusIcon } from './icons.jsx'
+import { CloseIcon, ImageIcon, PlusIcon } from './icons.jsx'
+import { TripCover } from './TripDetail.jsx'
 import {
   addDays,
   daysBetween,
@@ -17,6 +18,7 @@ import {
 } from '../data/dates.js'
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP']
+const MAX_COVER_BYTES = 10 * 1024 * 1024
 
 function initialState(trip) {
   return {
@@ -56,6 +58,26 @@ export default function TripForm({ trip, onClose, onSaved }) {
   )
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // `cover` is the saved photo's URL; `coverFile` is a newly picked one, which
+  // is only uploaded when the trip is saved.
+  const [cover, setCover] = useState(trip?.coverImage ?? null)
+  const [coverFile, setCoverFile] = useState(null)
+  const previewUrl = useMemo(() => (coverFile ? URL.createObjectURL(coverFile) : null), [coverFile])
+  useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl])
+
+  function pickCover(e) {
+    const picked = e.target.files?.[0]
+    e.target.value = ''
+    if (!picked) return
+    if (picked.size > MAX_COVER_BYTES) return setError('The cover photo must be 10 MB or smaller')
+    setError('')
+    setCoverFile(picked)
+  }
+
+  function removeCover() {
+    setCoverFile(null)
+    setCover(null)
+  }
 
   function handleChange(e) {
     const { name, value, type, checked } = e.target
@@ -109,7 +131,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
       destination: form.destination.trim(),
       category,
       description: form.description.trim(),
-      coverImage: trip?.coverImage ?? null,
+      coverImage: cover,
       meetingPoint: form.meetingPoint.trim(),
       minGroupSize: Number(form.minGroupSize),
       maxGroupSize: Number(form.maxGroupSize),
@@ -131,6 +153,13 @@ export default function TripForm({ trip, onClose, onSaved }) {
 
     setSubmitting(true)
     try {
+      if (coverFile) {
+        const { url } = await api.uploadTripCover(coverFile)
+        // Keep the upload, so retrying after a failed save doesn't send it again.
+        setCover(url)
+        setCoverFile(null)
+        payload.coverImage = url
+      }
       const result = editing
         ? await api.updateTrip(trip.id, payload)
         : await api.createTrip({ ...payload, status })
@@ -160,6 +189,44 @@ export default function TripForm({ trip, onClose, onSaved }) {
 
       <div className="edit-body">
         <form className="form" onSubmit={(e) => e.preventDefault()}>
+          <div className="field">
+            <span className="field-label">
+              Cover photo <span className="upload-optional">Optional</span>
+            </span>
+            {coverFile || cover ? (
+              <div className="media-preview">
+                {coverFile ? (
+                  <img src={previewUrl} alt="Selected cover" />
+                ) : (
+                  <TripCover trip={{ coverImage: cover, category }} alt="Current cover" />
+                )}
+                <div className="cover-actions">
+                  <label className="media-remove">
+                    Change
+                    <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pickCover} />
+                  </label>
+                  <button type="button" className="media-remove" onClick={removeCover}>
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <label className="media-picker">
+                <span className="media-picker-icon">
+                  <ImageIcon />
+                </span>
+                <span className="media-picker-text">
+                  <strong>Add a cover photo</strong>
+                  <span>
+                    JPG, PNG or WEBP · up to 10 MB.{' '}
+                    {category ? `Without one, the ${category} photo is used.` : 'Without one, the category photo is used.'}
+                  </span>
+                </span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={pickCover} />
+              </label>
+            )}
+          </div>
+
           <label className="field">
             <span className="field-label">Trip title</span>
             <input

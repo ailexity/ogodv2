@@ -39,6 +39,7 @@ server/
   data/                 SQLite database + generated JWT secret   (gitignored)
   uploads/              Guide verification documents               (gitignored)
   blog-media/           Blog photos and videos                     (gitignored)
+  trip-media/           Trip cover photos uploaded by guides       (gitignored)
 ```
 
 ## Roles and features
@@ -166,11 +167,12 @@ Read these first.
 
 #### Storage: the one constraint that dictates the host
 
-Three directories hold every piece of state, and none are in git:
+Four directories hold every piece of state, and none are in git:
 
 - `server/data/` — the SQLite database (`ogod.db`, `.db-wal`, `.db-shm`) and the generated JWT secret
 - `server/uploads/` — guide verification documents
 - `server/blog-media/` — blog photos and videos
+- `server/trip-media/` — trip cover photos (up to 10 MB each)
 
 That has hard consequences for host choice:
 
@@ -293,7 +295,7 @@ The database runs in WAL mode, so copying `ogod.db` alone can capture a torn sta
 
 ```bash
 sqlite3 server/data/ogod.db ".backup '/backups/ogod-$(date +%F).db'"
-tar czf /backups/ogod-media-$(date +%F).tar.gz server/uploads server/blog-media
+tar czf /backups/ogod-media-$(date +%F).tar.gz server/uploads server/blog-media server/trip-media
 ```
 
 A database restore is only consistent with the media directories from the same run — restore both together, or verification documents and blog media will point at files that are not there.

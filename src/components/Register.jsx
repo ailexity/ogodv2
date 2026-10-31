@@ -186,6 +186,7 @@ export default function Register({ onAuthenticated, onRegistered, onSwitchToLogi
         {error && <p className="form-error">{error}</p>}
 
         <button className="submit" type="submit" disabled={submitting}>
+          {submitting && <span className="spinner" aria-hidden="true" />}
           {submitting ? 'Creating account…' : 'Create account'}
         </button>
       </form>

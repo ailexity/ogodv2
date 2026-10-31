@@ -163,6 +163,11 @@ export const api = {
   declineBooking: (id, note) => request('POST', `/bookings/${id}/decline`, { body: { note } }),
   cancelBooking: (id, reason) => request('POST', `/bookings/${id}/cancel`, { body: { reason } }),
   getTrip: (id) => request('GET', `/trips/${id}`),
+  uploadTripCover: (file) => {
+    const form = new FormData()
+    form.append('cover', file)
+    return request('POST', '/trips/cover', { form })
+  },
   createTrip: (data) => request('POST', '/trips', { body: data }),
   updateTrip: (id, data) => request('PATCH', `/trips/${id}`, { body: data }),
   setTripStatus: (id, status, reason) =>

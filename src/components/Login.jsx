@@ -100,7 +100,8 @@ export default function Login({
           </button>
         </div>
 
-        <button className="submit" type="submit" disabled={submitting}>
+        <button className="submit" type="submit" disabled={submitting} aria-busy={submitting}>
+          {submitting && <span className="spinner" aria-hidden="true" />}
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
