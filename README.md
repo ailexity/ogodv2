@@ -1,4 +1,5 @@
 # OGod
+hello people
 
 A guided-travel marketplace. Travelers sign up, browse trips and book seats; guides get verified by an admin, publish trips and manage applicants; admins run the platform from a separate console.
 
