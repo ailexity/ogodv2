@@ -176,7 +176,13 @@ export default function App() {
   if (user && authView !== 'reset') {
     return (
       <>
-        <Home user={user} onUserChange={setUser} onLogout={handleLogout} onSignIn={requireAuth} />
+        <Home
+          user={user}
+          onUserChange={setUser}
+          onLogout={handleLogout}
+          onSignIn={requireAuth}
+          tourReady={!showWelcome || isDesktop}
+        />
         {showWelcome && !isDesktop && <Welcome user={user} onDismiss={() => setShowWelcome(false)} />}
         {isDesktop && (
           <button type="button" className="web-app-back" onClick={() => setSiteMode(true)}>

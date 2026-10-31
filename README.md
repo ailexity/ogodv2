@@ -80,7 +80,7 @@ All routes are under `/api`. `GET /api/health` returns `{ ok: true }`.
 
 | Prefix          | Auth              | What it covers                                                                 |
 | --------------- | ----------------- | ------------------------------------------------------------------------------ |
-| `/api/auth`     | mixed             | register, login, reset-password, `GET/PATCH /me`                               |
+| `/api/auth`     | mixed             | register, login, reset-password, `GET/PATCH /me`, `POST /me/tour` (first-run tour seen) |
 | `/api/guides`   | signed in         | submit a verification application (multipart), read your own application       |
 | `/api/trips`    | mixed             | list/filter/read trips (public), create/update/status/duplicate/delete (guide) |
 | `/api/bookings` | signed in         | quote, create, my bookings, trip bookings, requests, approve, decline          |

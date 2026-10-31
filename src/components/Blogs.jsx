@@ -15,7 +15,7 @@ import { useNow } from '../hooks/useNow.js'
 /** The horizontally-scrolling "Travel stories" strip on the home feed. */
 export function BlogsSection({ blogs, loading, onCompose, onSelect, onSeeAll }) {
   return (
-    <section className="blogs-section">
+    <section className="blogs-section" data-tour="stories">
       <div className="blogs-section-header">
         <h2 className="home-heading">Travel stories</h2>
         <div className="blogs-section-actions">

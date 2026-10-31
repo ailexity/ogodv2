@@ -62,6 +62,7 @@ export function publicUser(row) {
     emailVerified: Boolean(row.email_verified),
     hasPassword: Boolean(row.password_hash),
     googleLinked: Boolean(row.google_id),
+    tourCompleted: Boolean(row.tour_completed_at),
   }
 }
 

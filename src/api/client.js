@@ -110,6 +110,7 @@ export const api = {
   me: () => request('GET', '/auth/me'),
   updateProfile: (data) => request('PATCH', '/auth/me', { body: data }),
   updatePayout: (data) => request('PUT', '/auth/me/payout', { body: data }),
+  completeTour: () => request('POST', '/auth/me/tour'),
 
   applyAsGuide: (form) => request('POST', '/guides/apply', { form }),
   myApplication: () => request('GET', '/guides/application'),

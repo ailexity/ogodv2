@@ -9,6 +9,7 @@ import {
   STATUS_ACTIONS,
   TRIP_CATEGORIES,
 } from '../data/categories.js'
+import AppTour from './AppTour.jsx'
 import BookTrip from './BookTrip.jsx'
 import ChangePasswordForm from './ChangePasswordForm.jsx'
 import { useShuffled } from '../hooks/useShuffled.js'
@@ -133,8 +134,9 @@ const TERMS_TEXT = [
 /**
  * The phone app. `user` is null for a signed-out visitor, who can browse trips
  * and stories; anything that needs an account calls `onSignIn` instead.
+ * `tourReady` is false while something (the welcome board) covers the app.
  */
-export default function Home({ user, onUserChange, onLogout, onSignIn }) {
+export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady = true }) {
   const [activeTab, setActiveTab] = useState('home')
   const [trips, setTrips] = useState([])
   const [myTrips, setMyTrips] = useState([])
@@ -179,6 +181,27 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
   const shuffledBlogs = useShuffled(blogs)
 
   const [changingPassword, setChangingPassword] = useState(false)
+
+  // Every step points at something on the home tab.
+  const [touring, setTouring] = useState(false)
+  function startTour() {
+    setActiveTab('home')
+    setTouring(true)
+  }
+
+  useEffect(() => {
+    if (signedIn && tourReady && !user.tourCompleted) startTour()
+  }, [signedIn, tourReady, user?.tourCompleted])
+
+  function finishTour() {
+    setTouring(false)
+    if (user.tourCompleted) return
+    // If this fails the tour simply plays again next session.
+    api
+      .completeTour()
+      .then(({ user: updated }) => onUserChange(updated))
+      .catch(() => {})
+  }
 
   // Wishlist: trips saved with the heart on the trip page.
   const [saved, setSaved] = useState([])
@@ -408,6 +431,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
         <button
           type="button"
           className="header-icon-btn"
+          data-tour="messages"
           onClick={() => chat.setInboxOpen(true)}
           aria-label={unreadMessages ? `Messages, ${unreadMessages} unread` : 'Messages'}
         >
@@ -417,6 +441,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
         <button
           type="button"
           className="greeting-avatar"
+          data-tour="profile"
           onClick={() => setActiveTab('profile')}
           aria-label="Your profile"
         >
@@ -438,6 +463,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
               <button
                 type="button"
                 className="search-bar search-bar-button"
+                data-tour="search"
                 onClick={() => setActiveTab('explore')}
               >
                 <SearchIcon />
@@ -446,6 +472,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
               <button
                 type="button"
                 className={`filter-btn${activeFilterCount > 0 ? ' filter-btn-active' : ''}`}
+                data-tour="filters"
                 onClick={() => setOpenFilter(FILTERS[0].key)}
                 aria-label="Filters"
               >
@@ -464,7 +491,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
 
             <h2 className="home-heading">Select your next trip</h2>
 
-            <div className="scroll-row category-pills">
+            <div className="scroll-row category-pills" data-tour="categories">
               <button
                 type="button"
                 className={`pill${activeCategory === null ? ' pill-active' : ''}`}
@@ -488,7 +515,11 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
 
             {loadError && <p className="form-error">{loadError}</p>}
 
-            <section className="hero-list">
+            {/* The tour points at the first card's details, or the list while it is empty. */}
+            <section
+              className="hero-list"
+              data-tour={shuffledTrips.length === 0 ? 'trips' : undefined}
+            >
               {loadingTrips && <p className="trip-list-empty">Loading trips…</p>}
 
               {!loadingTrips && trips.length === 0 && (
@@ -516,8 +547,13 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
                 </div>
               )}
 
-              {shuffledTrips.map((trip) => (
-                <HeroTripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />
+              {shuffledTrips.map((trip, i) => (
+                <HeroTripCard
+                  key={trip.id}
+                  trip={trip}
+                  tourTarget={i === 0}
+                  onSelect={() => setSelectedTrip(trip)}
+                />
               ))}
             </section>
           </div>
@@ -676,6 +712,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
         <button
           type="button"
           className="nav-post"
+          data-tour="create"
           aria-label="Create"
           aria-haspopup="dialog"
           onClick={() => (signedIn ? setCreating(true) : onSignIn('login'))}
@@ -797,6 +834,17 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
                     }}
                   >
                     <span>{user?.hasPassword === false ? 'Set a password' : 'Change password'}</span>
+                    <ChevronRightIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="sheet-option"
+                    onClick={() => {
+                      setOpenInfoSheet(null)
+                      startTour()
+                    }}
+                  >
+                    <span>Take the app tour</span>
                     <ChevronRightIcon />
                   </button>
                   <label className="sheet-option">
@@ -998,6 +1046,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn }) {
           {chat.error}
         </button>
       )}
+
+      {touring && <AppTour user={user} onClose={finishTour} />}
     </div>
   )
 }
@@ -1023,6 +1073,7 @@ function NavButton({ tab, active, onClick }) {
     <button
       type="button"
       className={`nav-btn${active ? ' nav-btn-active' : ''}`}
+      data-tour={`nav-${tab.key}`}
       aria-label={label}
       aria-current={active ? 'page' : undefined}
       onClick={onClick}
@@ -1036,7 +1087,7 @@ function NavButton({ tab, active, onClick }) {
  * The home feed's headline card: a full-bleed cover with the trip's details on
  * a card that floats over the bottom of the image.
  */
-function HeroTripCard({ trip, onSelect }) {
+function HeroTripCard({ trip, onSelect, tourTarget = false }) {
   const seatsLeft = trip.seatsLeft ?? trip.maxGroupSize
   const now = useNow()
 
@@ -1047,7 +1098,7 @@ function HeroTripCard({ trip, onSelect }) {
         <span className="hero-tag">{trip.category}</span>
       </div>
 
-      <div className="hero-panel">
+      <div className="hero-panel" data-tour={tourTarget ? 'trips' : undefined}>
         <p className="hero-destination">{trip.destination}</p>
         <h3 className="hero-title">{trip.title}</h3>
         {trip.startDate && (

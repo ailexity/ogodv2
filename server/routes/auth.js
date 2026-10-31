@@ -286,6 +286,14 @@ router.put('/me/payout', authenticate, (req, res) => {
   res.json({ user: publicUser(findById(req.user.id)) })
 })
 
+/** Marks the first-run app tour as seen, so it plays once per account rather than per device. */
+router.post('/me/tour', authenticate, (req, res) => {
+  db.prepare(
+    "UPDATE users SET tour_completed_at = COALESCE(tour_completed_at, datetime('now')) WHERE id = ?",
+  ).run(req.user.id)
+  res.json({ user: publicUser(findById(req.user.id)) })
+})
+
 /**
  * Change your own password. Every other session is signed out; this one gets
  * a fresh token so the person stays signed in here.

@@ -4974,3 +4974,151 @@ button {
 .password-intro {
   margin: 0 0 18px;
 }
+
+/* ---------- First-run app tour ------------------------------------------ */
+
+/* Catches every tap so the app underneath stays put while the tour runs. */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  touch-action: none;
+}
+
+/* The dimmed screen is this box's shadow, so the box itself is the hole. */
+.tour-spotlight {
+  position: fixed;
+  border-radius: 14px;
+  box-shadow: 0 0 0 200vmax rgba(17, 17, 20, 0.6);
+  pointer-events: none;
+  transition: top 0.3s ease, left 0.3s ease, width 0.3s ease, height 0.3s ease;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px 18px 14px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  transition: top 0.3s ease, left 0.3s ease;
+  animation: tour-in 0.2s ease;
+}
+
+@keyframes tour-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.tour-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
+.tour-arrow-top {
+  top: -8px;
+  border-right: none;
+  border-bottom: none;
+}
+
+.tour-arrow-bottom {
+  bottom: -8px;
+  border-left: none;
+  border-top: none;
+}
+
+.tour-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.tour-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-faint);
+}
+
+.tour-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.tour-dot-active {
+  width: 16px;
+  background: var(--violet);
+}
+
+.tour-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tour-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.tour-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tour-actions-spacer {
+  flex: 1;
+}
+
+.tour-skip {
+  padding: 9px 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.tour-next {
+  padding: 9px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tour-next:active {
+  opacity: 0.85;
+}
+
+/* Keeps scrolled-to steps clear of the sticky header and floating nav. */
+.app-content [data-tour] {
+  scroll-margin: 96px 0 110px;
+}

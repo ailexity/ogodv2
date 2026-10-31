@@ -196,6 +196,11 @@ ensureColumn('users', 'payout_bank', 'TEXT')
 if (ensureColumn('users', 'subscription_until', 'TEXT')) {
   db.exec("UPDATE users SET subscription_until = date('now', '+1 year') WHERE guide_status IN ('verified', 'suspended')")
 }
+// Set once the first-run app tour is finished or skipped. Accounts from before
+// the tour existed already know their way around, so they never see it.
+if (ensureColumn('users', 'tour_completed_at', 'TEXT')) {
+  db.exec("UPDATE users SET tour_completed_at = datetime('now')")
+}
 // unpaid → proof_sent (traveller sent a screenshot) → received (guide checked it).
 ensureColumn('bookings', 'payment_status', "TEXT NOT NULL DEFAULT 'unpaid'")
 // Who ended a cancelled booking: 'traveler', 'guide' (declined) or 'trip' (trip cancelled).
