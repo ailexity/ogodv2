@@ -20,7 +20,6 @@ export function ordinalSuffix(day) {
 function guideNote(user) {
   if (user.guideStatus === 'suspended') return 'Your guide account is suspended'
   if (user.canPostTrips) return user.certified ? 'You are a certified guide' : 'You can post trips'
-  if (user.isGuide) return 'Renew your subscription to post trips'
   return 'Post your first trip'
 }
 

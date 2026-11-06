@@ -3,7 +3,6 @@ import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { db, DATA_DIR } from './db.js'
-import { getSetting } from './settings.js'
 
 // "Remember me" keeps a session for 30 days; otherwise it lasts a day.
 const TOKEN_TTL = { remember: '30d', session: '1d' }
@@ -35,18 +34,9 @@ function isCurrent(payload, row) {
   return (payload.ver ?? 0) === (row.token_version ?? 0)
 }
 
-/** A guide's yearly platform subscription still covers today. */
-export function subscriptionActive(row) {
-  return Boolean(row?.subscription_until) && row.subscription_until >= new Date().toISOString().slice(0, 10)
-}
-
-/**
- * Posting needs no review, only the guide details. A suspension always blocks
- * it, and so does a lapsed subscription while the admin has that switched on.
- */
+/** Posting is free and needs no review, only the guide details. A suspension blocks it. */
 export function canPostTrips(row) {
-  if (!row?.guide_since || row.guide_status === 'suspended') return false
-  return !getSetting('guide_subscription_required') || subscriptionActive(row)
+  return Boolean(row?.guide_since) && row.guide_status !== 'suspended'
 }
 
 export function publicUser(row) {
@@ -68,8 +58,6 @@ export function publicUser(row) {
     canPostTrips: canPostTrips(row),
     guideAreas: JSON.parse(row.guide_areas ?? '[]'),
     guideExperience: row.guide_experience,
-    subscriptionRequired: getSetting('guide_subscription_required'),
-    subscriptionUntil: row.subscription_until,
     payoutUpi: row.payout_upi,
     payoutBank: row.payout_bank,
     disabled: Boolean(row.disabled),
@@ -125,7 +113,7 @@ export function requireAdmin(req, res, next) {
   next()
 }
 
-/** Anyone can post trips once they've given their guide details; there is no review. */
+/** Anyone can post trips once they've given their guide details; there is no review or fee. */
 export function requireGuide(req, res, next) {
   if (req.user.guide_status === 'suspended') {
     return res.status(403).json({
@@ -137,12 +125,6 @@ export function requireGuide(req, res, next) {
     return res.status(403).json({
       error: 'Add your guide details before posting a trip',
       code: 'guide_details_required',
-    })
-  }
-  if (!canPostTrips(req.user)) {
-    return res.status(403).json({
-      error: 'Your yearly guide subscription has expired. Renew it from your profile to keep posting trips.',
-      code: 'subscription_expired',
     })
   }
   next()

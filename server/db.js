@@ -6,13 +6,11 @@ import { hashPassword } from './password.js'
 
 const serverDir = path.dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = path.join(serverDir, 'data')
-export const UPLOADS_DIR = path.join(serverDir, 'uploads')
 export const BLOG_MEDIA_DIR = path.join(serverDir, 'blog-media')
 export const CHAT_MEDIA_DIR = path.join(serverDir, 'chat-media')
 export const TRIP_MEDIA_DIR = path.join(serverDir, 'trip-media')
 
 mkdirSync(DATA_DIR, { recursive: true })
-mkdirSync(UPLOADS_DIR, { recursive: true })
 mkdirSync(BLOG_MEDIA_DIR, { recursive: true })
 mkdirSync(CHAT_MEDIA_DIR, { recursive: true })
 mkdirSync(TRIP_MEDIA_DIR, { recursive: true })
@@ -41,6 +39,8 @@ db.exec(`
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
   );
 
+  -- From the old guide review. Nothing writes here now; the rows are kept so no
+  -- records are lost, and to fill in the guide details of guides it approved.
   CREATE TABLE IF NOT EXISTS guide_applications (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -193,11 +193,6 @@ ensureColumn('users', 'token_version', 'INTEGER NOT NULL DEFAULT 0')
 // Where travellers pay a guide; quoted in the automatic message after each booking.
 ensureColumn('users', 'payout_upi', 'TEXT')
 ensureColumn('users', 'payout_bank', 'TEXT')
-// Guides pay OGod a yearly subscription. Guides verified before it existed get a
-// year from today rather than being locked out.
-if (ensureColumn('users', 'subscription_until', 'TEXT')) {
-  db.exec("UPDATE users SET subscription_until = date('now', '+1 year') WHERE guide_status IN ('verified', 'suspended')")
-}
 // Set once the first-run app tour is finished or skipped. Accounts from before
 // the tour existed already know their way around, so they never see it.
 if (ensureColumn('users', 'tour_completed_at', 'TEXT')) {
@@ -207,8 +202,7 @@ if (ensureColumn('users', 'tour_completed_at', 'TEXT')) {
 ensureColumn('bookings', 'payment_status', "TEXT NOT NULL DEFAULT 'unpaid'")
 // Who ended a cancelled booking: 'traveler', 'guide' (declined) or 'trip' (trip cancelled).
 ensureColumn('bookings', 'cancelled_by', 'TEXT')
-ensureColumn('guide_applications', 'fee_receipt', 'TEXT')
-// 'verification' (first application) or 'renewal' (yearly subscription only).
+// 'verification' (first application) or 'renewal' (the old yearly fee).
 ensureColumn('guide_applications', 'kind', "TEXT NOT NULL DEFAULT 'verification'")
 // What a guide tells travellers about themselves; shown on their trips.
 ensureColumn('users', 'guide_areas', "TEXT NOT NULL DEFAULT '[]'")
@@ -234,6 +228,8 @@ if (ensureColumn('users', 'guide_since', 'TEXT')) {
      WHERE guide_status IN ('verified', 'suspended')
   `)
 }
+// Nothing reviews guides any more, so these two statuses no longer mean anything.
+db.exec("UPDATE users SET guide_status = 'none' WHERE guide_status IN ('pending', 'rejected')")
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id) WHERE google_id IS NOT NULL;

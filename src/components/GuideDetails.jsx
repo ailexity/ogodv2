@@ -1,45 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { api } from '../api/client.js'
 import { LANGUAGE_OPTIONS } from '../data/categories.js'
 import { useBackLayer } from '../hooks/useBackLayer.js'
 import { CloseIcon, ShieldIcon } from './icons.jsx'
 
-function formatRupees(amount) {
-  return `₹${Number(amount ?? 0).toLocaleString('en-IN')}`
-}
-
-/** The yearly fee and where to pay it, as configured by the admin. */
-function SubscriptionNotice({ renewal = false }) {
-  const [info, setInfo] = useState(null)
-
-  useEffect(() => {
-    api
-      .subscriptionInfo()
-      .then(({ subscription }) => setInfo(subscription))
-      .catch(() => setInfo(null))
-  }, [])
-
-  return (
-    <div className="subscription-notice">
-      <p className="subscription-notice-title">
-        {renewal ? 'Renew for another year' : 'Yearly guide subscription'}
-        {info && <strong>{formatRupees(info.fee)} / year</strong>}
-      </p>
-      {info?.upi ? (
-        <p>
-          Pay to OGod&apos;s UPI ID <strong className="subscription-upi">{info.upi}</strong>, then
-          upload the payment receipt. Our team checks it and extends your subscription.
-        </p>
-      ) : (
-        <p>OGod&apos;s payment details aren&apos;t set up yet — please contact support before paying.</p>
-      )}
-    </div>
-  )
-}
-
 /**
  * The essentials a guide gives before their first trip, and how they correct
- * them later. Nothing is reviewed: saving these is what lets them post.
+ * them later. Nothing is reviewed or charged: saving these is what lets them post.
  * `requirePayout` is for someone about to post a paid trip.
  */
 export default function GuideDetails({ user, requirePayout = false, onClose, onSaved }) {
@@ -120,9 +87,9 @@ export default function GuideDetails({ user, requirePayout = false, onClose, onS
         <div className="notice">
           <ShieldIcon />
           <p>
-            There&apos;s no approval step — you can post trips as soon as this is saved. Travellers
-            see your languages, areas, experience and bio on your trips, and your phone number on
-            their ticket.
+            Posting is free and there&apos;s no approval step — you can post trips as soon as this
+            is saved. Travellers see your languages, areas, experience and bio on your trips, and
+            your phone number on their ticket.
           </p>
         </div>
 
@@ -237,15 +204,8 @@ export default function GuideDetails({ user, requirePayout = false, onClose, onS
   )
 }
 
-function subscriptionState(user) {
-  if (!user.subscriptionUntil) return { active: false, daysLeft: 0 }
-  const end = new Date(`${user.subscriptionUntil}T23:59:59Z`)
-  const daysLeft = Math.ceil((end - Date.now()) / 86_400_000)
-  return { active: daysLeft > 0, daysLeft }
-}
-
 /** Doc §4 steps 5–7: what someone sees about their own standing as a guide. */
-export function GuideStatusCard({ user, renewal, onEditDetails, onRenew }) {
+export function GuideStatusCard({ user, onEditDetails }) {
   if (user.guideStatus === 'suspended') {
     return (
       <div className="status-card status-card-rejected">
@@ -270,8 +230,8 @@ export function GuideStatusCard({ user, renewal, onEditDetails, onRenew }) {
           <div>
             <h3 className="status-card-title">Post your own trips</h3>
             <p className="status-card-text">
-              Anyone can post a trip on OGod, paid or free. Add a few details so travellers know who
-              they&apos;re going with.
+              Anyone can post a trip on OGod at no cost, with no approval step. Add a few details so
+              travellers know who they&apos;re going with.
             </p>
           </div>
         </div>
@@ -282,13 +242,8 @@ export function GuideStatusCard({ user, renewal, onEditDetails, onRenew }) {
     )
   }
 
-  const { active, daysLeft } = subscriptionState(user)
-  const lapsed = user.subscriptionRequired && !active
-  const renewalPending = renewal?.status === 'pending'
-  const canRenew = user.subscriptionRequired && !renewalPending && daysLeft <= 30
-
   return (
-    <div className={`status-card ${lapsed ? 'status-card-rejected' : 'status-card-verified'}`}>
+    <div className="status-card status-card-verified">
       <div className="status-card-head">
         <ShieldIcon />
         <div>
@@ -296,100 +251,12 @@ export function GuideStatusCard({ user, renewal, onEditDetails, onRenew }) {
             {user.guideStatus === 'verified' ? 'Verified guide' : 'Tour guide'}
             {user.certified && ' · Certified'}
           </h3>
-          <p className="status-card-text">
-            {!lapsed
-              ? 'Your profile is live and you can post trips.'
-              : user.subscriptionUntil
-                ? 'Your yearly subscription has expired, so you can’t post or open trips until you renew.'
-                : 'Posting trips needs a yearly subscription. Pay it to get started.'}
-          </p>
+          <p className="status-card-text">Your profile is live and you can post trips.</p>
         </div>
       </div>
-      {user.subscriptionRequired && user.subscriptionUntil && (
-        <p className="status-card-meta">
-          Subscription {active ? 'active until' : 'ended on'} {user.subscriptionUntil}
-          {active && daysLeft <= 30 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`}
-        </p>
-      )}
-      {user.subscriptionRequired && renewalPending && (
-        <p className="status-card-meta">Subscription payment under review.</p>
-      )}
-      {user.subscriptionRequired && renewal?.status === 'rejected' && renewal.reviewNotes && (
-        <p className="status-card-meta">Last payment not approved: {renewal.reviewNotes}</p>
-      )}
-      {canRenew && onRenew && (
-        <button type="button" className="submit" onClick={onRenew}>
-          {user.subscriptionUntil ? 'Renew subscription' : 'Pay subscription'}
-        </button>
-      )}
       <button type="button" className="ghost-btn full-width status-card-edit" onClick={onEditDetails}>
         Edit guide details
       </button>
-    </div>
-  )
-}
-
-/** A yearly renewal: pay OGod, upload the receipt, and the admin extends it. */
-export function SubscriptionRenewal({ user, onClose, onSubmitted }) {
-  const [file, setFile] = useState(null)
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  useBackLayer(true, onClose)
-
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!file) return setError('Upload the receipt for your payment')
-    const form = new FormData()
-    form.set('feeReceipt', file)
-    setSubmitting(true)
-    setError('')
-    try {
-      await api.renewSubscription(form)
-      onSubmitted()
-    } catch (err) {
-      setError(err.message)
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <div className="edit-overlay">
-      <header className="edit-header">
-        <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
-          <CloseIcon />
-        </button>
-        <h2 className="edit-header-title">
-          {user.subscriptionUntil ? 'Renew subscription' : 'Guide subscription'}
-        </h2>
-        <span className="edit-header-spacer" />
-      </header>
-      <div className="edit-body">
-        <form className="form" onSubmit={handleSubmit}>
-          <SubscriptionNotice renewal={Boolean(user.subscriptionUntil)} />
-          <div className="upload-row">
-            <div className="upload-copy">
-              <span className="upload-label">Payment receipt</span>
-              <span className="field-hint">Screenshot or PDF of the payment.</span>
-              {file && <span className="upload-filename">{file.name}</span>}
-            </div>
-            <label className="upload-btn">
-              {file ? 'Replace' : 'Upload'}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
-                onChange={(e) => {
-                  setFile(e.target.files?.[0] ?? null)
-                  setError('')
-                }}
-              />
-            </label>
-          </div>
-          {error && <p className="form-error">{error}</p>}
-          <button type="submit" className="submit" disabled={submitting}>
-            {submitting ? 'Sending…' : 'Submit for review'}
-          </button>
-        </form>
-      </div>
     </div>
   )
 }

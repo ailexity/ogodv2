@@ -40,7 +40,7 @@ export default function AdminSettings({ user }) {
 
   async function save() {
     const blank = Object.entries(definitions).find(
-      ([key, definition]) => ['rate', 'amount'].includes(definition.type) && values[key] === '',
+      ([key, definition]) => definition.type === 'rate' && values[key] === '',
     )
     if (blank) return setError(`${blank[1].label} needs a value`)
 
@@ -87,27 +87,6 @@ export default function AdminSettings({ user }) {
                     <span className="toggle-thumb" />
                   </span>
                 </label>
-              ) : definition.type === 'text' ? (
-                <input
-                  className="setting-text"
-                  type="text"
-                  value={values[key] ?? ''}
-                  maxLength={definition.maxLength}
-                  placeholder="ogod@upi"
-                  onChange={(e) => update(key, e.target.value)}
-                />
-              ) : definition.type === 'amount' ? (
-                <div className="rate-input">
-                  <span className="rate-suffix">₹</span>
-                  <input
-                    type="number"
-                    value={values[key] ?? ''}
-                    min={definition.min}
-                    max={definition.max}
-                    step="1"
-                    onChange={(e) => update(key, e.target.value)}
-                  />
-                </div>
               ) : (
                 <div className="rate-input">
                   <input

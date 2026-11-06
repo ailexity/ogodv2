@@ -16,7 +16,7 @@ const STEPS = [
   {
     Icon: ShieldIcon,
     title: 'Get to know your guide',
-    text: 'See where they run trips and the languages they speak, and message them before you book. A Verified badge means OGod has checked their documents.',
+    text: 'See where they run trips and the languages they speak, and message them before you book. A Verified badge means OGod has checked them.',
   },
   {
     Icon: CheckIcon,

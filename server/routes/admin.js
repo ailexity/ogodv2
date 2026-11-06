@@ -1,10 +1,8 @@
-import path from 'node:path'
 import { Router } from 'express'
-import { db, UPLOADS_DIR, isLastEnabledAdmin } from '../db.js'
+import { db, isLastEnabledAdmin } from '../db.js'
 import { authenticate, publicUser, requireAdmin } from '../auth.js'
 import { hashPassword, passwordProblem } from '../password.js'
 import { parseAge } from '../validate.js'
-import { mapApplication } from './guides.js'
 import { BLOG_QUERY, mapBlog } from './blogs.js'
 import { SETTING_DEFINITIONS, getSettings, updateSettings } from '../settings.js'
 
@@ -17,97 +15,6 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 function loadUser(id) {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(id)
 }
-
-const APPLICATION_QUERY = `
-  SELECT a.*, u.name AS applicant_name, u.email AS applicant_email
-    FROM guide_applications a
-    JOIN users u ON u.id = a.user_id
-`
-
-/** Doc §4 step 3: the admin review queue. */
-router.get('/applications', (req, res) => {
-  const status = req.query.status
-  const rows =
-    status && ['pending', 'approved', 'rejected'].includes(status)
-      ? db.prepare(`${APPLICATION_QUERY} WHERE a.status = ? ORDER BY a.created_at ASC`).all(status)
-      : db.prepare(`${APPLICATION_QUERY} ORDER BY a.created_at ASC`).all()
-
-  res.json({ applications: rows.map(mapApplication) })
-})
-
-function decide(applicationId, decision, adminId, notes, certified) {
-  const application = db
-    .prepare('SELECT * FROM guide_applications WHERE id = ?')
-    .get(applicationId)
-
-  if (!application) return { error: 'Application not found', code: 404 }
-  if (application.status !== 'pending') {
-    return { error: 'This application has already been reviewed', code: 409 }
-  }
-
-  db.transaction(() => {
-    db.prepare(
-      `UPDATE guide_applications
-          SET status = ?, review_notes = ?, reviewed_by = ?, reviewed_at = datetime('now')
-        WHERE id = ?`,
-    ).run(decision, notes, adminId, applicationId)
-
-    if (application.kind === 'renewal') {
-      // A renewal only extends the subscription by a year from whichever is
-      // later, today or the current end; rejecting it leaves the guide as is.
-      if (decision === 'approved') {
-        db.prepare(
-          `UPDATE users
-              SET subscription_until = date(MAX(COALESCE(subscription_until, date('now')), date('now')), '+1 year')
-            WHERE id = ?`,
-        ).run(application.user_id)
-      }
-    } else if (decision === 'approved') {
-      // Applications from before posting opened up. Approving one grants the
-      // Verified badge, and the application itself counts as their guide details.
-      // An admin who applies keeps their admin role.
-      db.prepare(
-        `UPDATE users SET guide_status = 'verified', certified = ?,
-                subscription_until = date('now', '+1 year'),
-                guide_since = COALESCE(guide_since, datetime('now')),
-                guide_areas = ?, guide_experience = ?,
-                role = CASE WHEN role = 'admin' THEN 'admin' ELSE 'guide' END
-          WHERE id = ?`,
-      ).run(certified ? 1 : 0, application.areas, application.years_experience, application.user_id)
-    } else {
-      db.prepare("UPDATE users SET guide_status = 'rejected' WHERE id = ?").run(application.user_id)
-    }
-  })()
-
-  return { userId: application.user_id }
-}
-
-/** Doc §4 steps 4–6: approve, optionally granting the "Certified" badge. */
-router.post('/applications/:id/approve', (req, res) => {
-  const result = decide(
-    Number(req.params.id),
-    'approved',
-    req.user.id,
-    String(req.body?.notes ?? '').trim() || null,
-    Boolean(req.body?.certified),
-  )
-  if (result.error) return res.status(result.code).json({ error: result.error })
-
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.userId)
-  res.json({ user: publicUser(user) })
-})
-
-/** Doc §4 step 5: rejection must carry a reason so the guide can fix and reapply. */
-router.post('/applications/:id/reject', (req, res) => {
-  const notes = String(req.body?.notes ?? '').trim()
-  if (!notes) return res.status(400).json({ error: 'A rejection reason is required' })
-
-  const result = decide(Number(req.params.id), 'rejected', req.user.id, notes, false)
-  if (result.error) return res.status(result.code).json({ error: result.error })
-
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(result.userId)
-  res.json({ user: publicUser(user) })
-})
 
 /**
  * Doc §4 step 7: ongoing trust maintenance. With no review before someone posts,
@@ -180,10 +87,9 @@ router.get('/stats', (_req, res) => {
         guides: count("SELECT COUNT(*) AS n FROM users WHERE role = 'guide'"),
         admins: count("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'"),
       },
-      verification: {
-        ...{ none: 0, pending: 0, verified: 0, rejected: 0, suspended: 0 },
-        ...byStatus('users', 'guide_status'),
-        awaitingReview: count("SELECT COUNT(*) AS n FROM guide_applications WHERE status = 'pending'"),
+      guides: {
+        verified: count("SELECT COUNT(*) AS n FROM users WHERE guide_status = 'verified'"),
+        suspended: count("SELECT COUNT(*) AS n FROM users WHERE guide_status = 'suspended'"),
       },
       trips: {
         total: count('SELECT COUNT(*) AS n FROM trips'),
@@ -430,21 +336,6 @@ router.get('/guides', (_req, res) => {
     .prepare("SELECT * FROM users WHERE guide_since IS NOT NULL OR guide_status != 'none' ORDER BY name")
     .all()
   res.json({ guides: rows.map(publicUser) })
-})
-
-/**
- * Verification documents include government IDs, so they are never served
- * statically — only an authenticated admin can stream one.
- */
-router.get('/documents/:filename', (req, res) => {
-  const { filename } = req.params
-  if (!/^[a-f0-9]{32}\.(jpg|png|webp|pdf)$/.test(filename)) {
-    return res.status(400).json({ error: 'Invalid document reference' })
-  }
-
-  res.sendFile(path.join(UPLOADS_DIR, filename), (error) => {
-    if (error && !res.headersSent) res.status(404).json({ error: 'Document not found' })
-  })
 })
 
 export default router

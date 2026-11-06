@@ -18,11 +18,7 @@ import { formatDateRange, timeAgo, tripCountdown } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
 import { BACK_LEVEL, useBackLayer } from '../hooks/useBackLayer.js'
 import { BlogComposer, BlogDetailOverlay, BlogsAllOverlay, BlogsSection } from './Blogs.jsx'
-import GuideDetails, {
-  GuideStatusCard,
-  PayoutDetails,
-  SubscriptionRenewal,
-} from './GuideDetails.jsx'
+import GuideDetails, { GuideStatusCard, PayoutDetails } from './GuideDetails.jsx'
 import { ChatThread, MessagesInbox, useChatLauncher, useUnreadMessages } from './Messages.jsx'
 import TripApplicants from './TripApplicants.jsx'
 import TripForm from './TripForm.jsx'
@@ -139,9 +135,9 @@ export const FILTERS = [
 
 const TERMS_TEXT = [
   'By using OGod, you agree to book and travel responsibly, and to provide accurate information when creating an account or posting a trip.',
-  'Anyone can post a trip once they have given their guide details. OGod does not review guides before they post, so only a guide showing the Verified badge has had their documents checked.',
+  'Anyone can post a trip free of charge once they have given their guide details. OGod does not review guides before they post, so only a guide showing the Verified badge has been checked by OGod.',
   'Trips listed on OGod are run by independent guides. OGod is not responsible for the outcome of any trip, and can suspend a guide who breaks these terms.',
-  'Your personal information is used only to operate your account and is never sold to third parties. Any verification documents are visible only to our review team.',
+  'Your personal information is used only to operate your account and is never sold to third parties.',
   'These terms may be updated from time to time. Continued use of the app means you accept the latest version.',
 ]
 
@@ -180,8 +176,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const [creating, setCreating] = useState(startCreating)
   const chat = useChatLauncher()
   const [unreadMessages, refreshUnread] = useUnreadMessages(Boolean(user))
-  const [renewal, setRenewal] = useState(null)
-  const [renewing, setRenewing] = useState(false)
   const [editingPayout, setEditingPayout] = useState(false)
   const signedIn = Boolean(user)
 
@@ -328,17 +322,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     loadBlogs()
   }, [loadBlogs])
 
-  const loadRenewal = useCallback(() => {
-    api
-      .myApplication()
-      .then(({ renewal: next }) => setRenewal(next))
-      .catch(() => setRenewal(null))
-  }, [])
-
-  useEffect(() => {
-    if (user?.isGuide && user.subscriptionRequired) loadRenewal()
-  }, [user?.isGuide, user?.subscriptionRequired, loadRenewal])
-
   const activeFilterCount = Object.keys(filterValues).length
 
   function selectFilterValue(key, value) {
@@ -369,23 +352,21 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   }
 
   /**
-   * Anyone can post a trip. The first time, they give their guide details; someone
-   * who can't post (suspended, or a lapsed subscription) sees why on their profile.
+   * Anyone can post a trip, free of charge. The first time, they give their guide
+   * details; a suspended guide sees why they can't on their profile.
    */
   function startTrip(free = false) {
     setCreating(false)
     if (!signedIn) onSignIn('login')
     else if (user.canPostTrips) setTripFormState({ trip: null, free })
-    else if (user.isGuide || user.guideStatus === 'suspended') setActiveTab('profile')
+    else if (user.guideStatus === 'suspended') setActiveTab('profile')
     else setGuideDetails({ free })
   }
 
   function handleGuideDetailsSaved(updated) {
     onUserChange(updated)
     setGuideDetails(null)
-    if (guideDetails.editing) return
-    if (updated.canPostTrips) setTripFormState({ trip: null, free: guideDetails.free })
-    else setActiveTab('profile')
+    if (!guideDetails.editing) setTripFormState({ trip: null, free: guideDetails.free })
   }
 
   async function handleTripSaved() {
@@ -640,9 +621,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
 
             <GuideStatusCard
               user={user}
-              renewal={renewal}
               onEditDetails={() => setGuideDetails({ editing: true })}
-              onRenew={() => setRenewing(true)}
             />
 
             <div className="profile-details">
@@ -939,17 +918,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
           onSaved={(updated) => {
             onUserChange(updated)
             setEditingProfile(false)
-          }}
-        />
-      )}
-
-      {renewing && (
-        <SubscriptionRenewal
-          user={user}
-          onClose={() => setRenewing(false)}
-          onSubmitted={() => {
-            setRenewing(false)
-            loadRenewal()
           }}
         />
       )}

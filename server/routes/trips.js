@@ -462,9 +462,7 @@ router.post('/:id/status', authenticate, (req, res) => {
         error:
           owner?.guide_status === 'suspended'
             ? 'A suspended guide can’t publish trips or open bookings'
-            : owner?.guide_since
-              ? 'The guide’s yearly subscription has expired'
-              : 'Add your guide details before publishing a trip',
+            : 'Add your guide details before publishing a trip',
       })
     }
     if (payoutMissing(owner, trip.price_per_person)) return res.status(409).json(PAYOUT_REQUIRED)

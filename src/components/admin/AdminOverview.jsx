@@ -3,7 +3,7 @@ import { api } from '../../api/client.js'
 import { formatMoney } from '../TripDetail.jsx'
 import { TRIP_STATUS } from '../../data/categories.js'
 
-export default function AdminOverview({ onJump }) {
+export default function AdminOverview() {
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
 
@@ -23,17 +23,6 @@ export default function AdminOverview({ onJump }) {
 
   return (
     <div className="console-sections">
-      {stats.verification.awaitingReview > 0 && (
-        <button type="button" className="console-alert" onClick={() => onJump('guides')}>
-          <span>
-            <strong>{stats.verification.awaitingReview}</strong> guide{' '}
-            {stats.verification.awaitingReview === 1 ? 'application is' : 'applications are'} waiting
-            for review
-          </span>
-          <span className="console-alert-cta">Review now →</span>
-        </button>
-      )}
-
       <section>
         <h2 className="console-section-title">Revenue</h2>
         <div className="stat-grid">
@@ -63,12 +52,10 @@ export default function AdminOverview({ onJump }) {
       </section>
 
       <section>
-        <h2 className="console-section-title">Guide badges and reviews</h2>
+        <h2 className="console-section-title">Guides</h2>
         <div className="stat-grid">
-          <StatCard label="Verified" value={stats.verification.verified} emphasis />
-          <StatCard label="Awaiting review" value={stats.verification.awaitingReview} />
-          <StatCard label="Rejected" value={stats.verification.rejected} />
-          <StatCard label="Suspended" value={stats.verification.suspended} tone="danger" />
+          <StatCard label="Verified" value={stats.guides.verified} emphasis />
+          <StatCard label="Suspended" value={stats.guides.suspended} tone="danger" />
         </div>
       </section>
 

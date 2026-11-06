@@ -1432,10 +1432,6 @@ body {
   border-color: var(--ink);
 }
 
-.status-card-pending {
-  border-color: var(--star);
-}
-
 .status-card-rejected {
   border-color: var(--danger);
 }
@@ -1517,71 +1513,11 @@ body {
   margin: 0;
 }
 
-.checkbox-row {
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.checkbox-row input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-  accent-color: var(--ink);
-}
-
-/* ---------- Verification document upload ----------------------------- */
-
-.upload-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.upload-row:last-child {
-  border-bottom: none;
-}
-
-.upload-copy {
-  min-width: 0;
-}
-
-.upload-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-}
-
 .upload-optional {
   margin-left: 6px;
   font-size: 11px;
   font-weight: 500;
   color: var(--ink-faint);
-}
-
-.upload-filename {
-  display: block;
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink);
-  overflow-wrap: anywhere;
-}
-
-.upload-btn {
-  flex-shrink: 0;
-  padding: 8px 14px;
-  border: 1px solid var(--border-strong);
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.upload-btn input[type="file"] {
-  display: none;
 }
 
 /* ---------- Trip form sections ---------------------------------------- */
@@ -1785,36 +1721,6 @@ body {
 .admin-row-actions .ghost-btn {
   padding: 6px 12px;
   font-size: 12px;
-}
-
-.document-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.document-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.document-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-
-.document-image {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 8px;
-  background: var(--surface-alt);
 }
 
 /* ==========================================================================
@@ -2261,29 +2167,6 @@ body {
   margin: 0 0 14px;
   font-size: 13px;
   color: var(--ink-faint);
-}
-
-.console-alert {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  width: 100%;
-  padding: 16px 18px;
-  border: 1px solid var(--ink);
-  border-radius: 16px;
-  background: var(--surface);
-  font: inherit;
-  font-size: 14px;
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-}
-
-.console-alert-cta {
-  font-weight: 700;
-  white-space: nowrap;
 }
 
 /* ---------- Stat cards ------------------------------------------------- */
@@ -3855,10 +3738,6 @@ body {
     max-width: 760px;
     margin-inline: auto;
   }
-
-  .document-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 /* Desktop: three columns, and the trip carousel gets room to breathe. */
@@ -4447,33 +4326,7 @@ body {
   margin-left: 8px;
 }
 
-/* ---------- Payments, subscription and booking cards --------------------- */
-
-.subscription-notice {
-  margin-bottom: 4px;
-  padding: 14px 16px;
-  border: 1px solid var(--violet);
-  border-radius: 14px;
-  background: var(--violet-soft);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.subscription-notice p {
-  margin: 0;
-}
-
-.subscription-notice-title {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px !important;
-  font-weight: 600;
-}
-
-.subscription-upi {
-  user-select: all;
-}
+/* ---------- Payments and booking cards --------------------- */
 
 .payment-note {
   margin: 0 0 12px;
@@ -4493,24 +4346,6 @@ body {
 .profile-menu-hint {
   display: block;
   margin-top: 2px;
-}
-
-.admin-kind-tag {
-  margin-left: 8px;
-  padding: 3px 8px;
-  font-size: 11px;
-  vertical-align: middle;
-}
-
-.setting-text {
-  height: 40px;
-  min-width: 200px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface-alt);
-  font: inherit;
-  font-size: 15px;
 }
 
 .chat-card {
@@ -4840,17 +4675,6 @@ button {
 }
 
 /* ---------- Uploads -------------------------------------------------------- */
-
-.upload-list {
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-}
-
-.upload-btn-done {
-  border-color: var(--ink);
-}
 
 .upload-optional {
   font-weight: 500;

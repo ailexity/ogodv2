@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import AdminReview from '../AdminReview.jsx'
 import AdminBlogs from './AdminBlogs.jsx'
+import AdminGuides from './AdminGuides.jsx'
 import AdminOverview from './AdminOverview.jsx'
 import AdminPeople from './AdminPeople.jsx'
 import AdminSettings from './AdminSettings.jsx'
@@ -61,8 +61,8 @@ export default function AdminApp({ user, onLogout }) {
       </nav>
 
       <main className="console-body">
-        {section === 'overview' && <AdminOverview onJump={setSection} />}
-        {section === 'guides' && <AdminReview />}
+        {section === 'overview' && <AdminOverview />}
+        {section === 'guides' && <AdminGuides />}
         {section === 'people' && <AdminPeople currentUserId={user.id} />}
         {section === 'blogs' && <AdminBlogs />}
         {section === 'settings' && <AdminSettings user={user} />}

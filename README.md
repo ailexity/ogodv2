@@ -39,7 +39,6 @@ server/
   settings.js           Admin-editable platform settings (fees, feature switches)
   routes/               auth, guides, admin, trips, bookings, blogs
   data/                 SQLite database + generated JWT secret   (gitignored)
-  uploads/              Subscription receipts, older verification documents (gitignored)
   blog-media/           Blog photos and videos                     (gitignored)
   trip-media/           Trip cover photos uploaded by guides       (gitignored)
 ```
@@ -54,7 +53,7 @@ Every account is one of `traveler`, `guide` or `admin`. New sign-ups always star
 - Book a seat for a party of travelers — only the lead traveler gives contact details. A live `/bookings/quote` call shows the exact price breakdown the server will charge.
 - Join a free trip ("just come along"): no payment and no approval, and the ticket arrives straight away.
 - Post travel stories (blogs) with a photo or video, and see everyone else's on the home feed.
-- Become a guide by giving their guide details: phone, languages and areas, plus experience and a bio if they like. There are no documents and no review.
+- Become a guide by giving their guide details: phone, languages and areas, plus experience and a bio if they like. There are no documents, no fee and no review.
 
 **Guide** (anyone who has given their guide details)
 - Create, edit, duplicate and delete trips: destination, category, cover image, duration, meeting point, group size, price, currency, difficulty, languages, inclusions/exclusions, highlights, dates and booking deadline.
@@ -65,10 +64,9 @@ Every account is one of `traveler`, `guide` or `admin`. New sign-ups always star
 **Admin**
 - Gets the moderation console instead of the traveler app.
 - See every guide and the details they gave, and suspend or reinstate them. With no review before someone posts, suspension is the check on a guide.
-- Review subscription payments, and applications from before posting opened up. Approving an application adds the Verified badge; it has no effect on posting.
 - Manage people: search, edit, change role, reset password, disable/enable, delete. The last enabled admin is protected from being locked out.
 - Hide or unhide blog posts without touching the author's account.
-- Change platform settings — service fee rate, tax rate, and switches for new guides, the yearly guide subscription (off by default) and bookings. Every setting changes real behaviour.
+- Change platform settings — service fee rate, tax rate, and switches for new guides and bookings. Every setting changes real behaviour.
 
 ## Data model
 
@@ -77,6 +75,7 @@ Every account is one of `traveler`, `guide` or `admin`. New sign-ups always star
 Details worth knowing before you touch the schema:
 
 - `users.guide_since` is what lets someone post trips. `users.guide_status` only drives the Verified badge and suspensions, so a new guide stays `none`.
+- `guide_applications` and `users.subscription_until` are left over from the old guide review and yearly fee. Nothing writes to them or depends on them any more; the rows are kept so no records are lost.
 - A trip priced 0 is a free trip; there is no separate flag. Its bookings are `confirmed` immediately, with `payment_status` set to `not_required`.
 - New columns are added at boot by `ensureColumn()` in [server/db.js](server/db.js), so existing dev databases keep working across pulls.
 - `bookings` uses a **partial** unique index on `(trip_id, user_id) WHERE status != 'cancelled'` — one live booking per traveler per trip, while still allowing someone whose booking was declined to apply again. `dropLegacyBookingConstraint()` rebuilds the table for databases created before that rule existed.
@@ -88,13 +87,13 @@ All routes are under `/api`. `GET /api/health` returns `{ ok: true }`.
 | Prefix          | Auth              | What it covers                                                                 |
 | --------------- | ----------------- | ------------------------------------------------------------------------------ |
 | `/api/auth`     | mixed             | register, login, reset-password, `GET/PATCH /me`, `POST /me/tour` (first-run tour seen) |
-| `/api/guides`   | signed in         | save your guide details, yearly subscription info and renewal                  |
+| `/api/guides`   | signed in         | save your guide details                                                        |
 | `/api/trips`    | mixed             | list/filter/read trips (public), create/update/status/duplicate/delete (guide) |
 | `/api/bookings` | signed in         | quote, create, my bookings, trip bookings, requests, approve, decline          |
 | `/api/blogs`    | mixed             | list/read (public), create (multipart), delete own, serve media                |
 | `/api/admin`    | admin only        | applications, guides, users, blogs, stats, settings, document downloads        |
 
-Auth is a bearer JWT (7-day TTL) stored in `localStorage` under `ogod_token`. Passwords are scrypt-hashed. Uploads are re-named to random hex plus an extension derived from the vetted MIME type, so a client-supplied filename can never escape the upload directory. Limits: **5 MB × 1 file** for subscription receipts (JPG/PNG/WEBP/PDF), **25 MB × 1 file** for blog media (JPG/PNG/WEBP/MP4/WEBM/MOV).
+Auth is a bearer JWT (7-day TTL) stored in `localStorage` under `ogod_token`. Passwords are scrypt-hashed. Uploads are re-named to random hex plus an extension derived from the vetted MIME type, so a client-supplied filename can never escape the upload directory. Limits: **25 MB × 1 file** for blog media (JPG/PNG/WEBP/MP4/WEBM/MOV).
 
 ## Configuration
 
@@ -173,10 +172,9 @@ Read these first.
 
 #### Storage: the one constraint that dictates the host
 
-Four directories hold every piece of state, and none are in git:
+These directories hold every piece of state, and none are in git:
 
 - `server/data/` — the SQLite database (`ogod.db`, `.db-wal`, `.db-shm`) and the generated JWT secret
-- `server/uploads/` — subscription receipts and older guide verification documents
 - `server/blog-media/` — blog photos and videos
 - `server/trip-media/` — trip cover photos (up to 10 MB each)
 
@@ -193,7 +191,6 @@ Disk sizing, from actual measured sizes:
 | Built frontend (`dist/`) | ~305 KB |
 | `node_modules` | 74 MB as installed here (including dev dependencies), of which `better-sqlite3` alone is 27 MB |
 | Database, current dev data | under 1 MB — it grows slowly, since rows are text |
-| Subscription receipts | up to **5 MB each** |
 | Blog media | up to **25 MB per post** (1 file × 25 MB cap) |
 
 Media is what actually consumes the disk. A rough budget: `20 GB ≈ 800 blog posts at full size`, and in practice far more, since most uploads are photos rather than 25 MB videos. Nothing prunes or transcodes uploads, and deleting a blog row does not delete its file — plan to monitor free space.
@@ -301,7 +298,9 @@ The database runs in WAL mode, so copying `ogod.db` alone can capture a torn sta
 
 ```bash
 sqlite3 server/data/ogod.db ".backup '/backups/ogod-$(date +%F).db'"
-tar czf /backups/ogod-media-$(date +%F).tar.gz server/uploads server/blog-media server/trip-media
+tar czf /backups/ogod-media-$(date +%F).tar.gz server/blog-media server/trip-media
 ```
 
-A database restore is only consistent with the media directories from the same run — restore both together, or verification documents and blog media will point at files that are not there.
+A database restore is only consistent with the media directories from the same run — restore both together, or blog media and trip covers will point at files that are not there.
+
+An install from before posting opened up may still have a `server/uploads/` folder holding guide ID documents and fee receipts. Nothing reads it any more, and it stays gitignored. Delete it once you no longer need those records.

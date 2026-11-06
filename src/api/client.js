@@ -113,14 +113,6 @@ export const api = {
   completeTour: () => request('POST', '/auth/me/tour'),
 
   saveGuideDetails: (data) => request('PUT', '/guides/details', { body: data }),
-  myApplication: () => request('GET', '/guides/application'),
-  subscriptionInfo: () => request('GET', '/guides/subscription'),
-  renewSubscription: (form) => request('POST', '/guides/renew', { form }),
-
-  listApplications: (status) =>
-    request('GET', `/admin/applications${status ? `?status=${status}` : ''}`),
-  approveApplication: (id, data) => request('POST', `/admin/applications/${id}/approve`, { body: data }),
-  rejectApplication: (id, notes) => request('POST', `/admin/applications/${id}/reject`, { body: { notes } }),
   listGuides: () => request('GET', '/admin/guides'),
   stats: () => request('GET', '/admin/stats'),
   listUsers: ({ role, q } = {}) => {
