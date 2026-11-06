@@ -210,6 +210,30 @@ ensureColumn('bookings', 'cancelled_by', 'TEXT')
 ensureColumn('guide_applications', 'fee_receipt', 'TEXT')
 // 'verification' (first application) or 'renewal' (yearly subscription only).
 ensureColumn('guide_applications', 'kind', "TEXT NOT NULL DEFAULT 'verification'")
+// What a guide tells travellers about themselves; shown on their trips.
+ensureColumn('users', 'guide_areas', "TEXT NOT NULL DEFAULT '[]'")
+ensureColumn('users', 'guide_experience', 'INTEGER')
+// What to go back to when a suspension is lifted, so lifting one can't hand out
+// a Verified badge to someone who never had it.
+ensureColumn('users', 'suspended_from', 'TEXT')
+// Set when someone gives their guide details, which is what lets them post trips.
+// Guides verified under the old review already gave them on their application.
+if (ensureColumn('users', 'guide_since', 'TEXT')) {
+  db.exec(`
+    UPDATE users
+       SET guide_since = datetime('now'),
+           guide_areas = COALESCE(
+             (SELECT a.areas FROM guide_applications a
+               WHERE a.user_id = users.id AND a.kind = 'verification' AND a.status = 'approved'
+               ORDER BY a.id DESC LIMIT 1),
+             guide_areas),
+           guide_experience =
+             (SELECT a.years_experience FROM guide_applications a
+               WHERE a.user_id = users.id AND a.kind = 'verification' AND a.status = 'approved'
+               ORDER BY a.id DESC LIMIT 1)
+     WHERE guide_status IN ('verified', 'suspended')
+  `)
+}
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id) WHERE google_id IS NOT NULL;
@@ -345,8 +369,8 @@ dropLegacyBookingConstraint()
 
 /**
  * The app ships with no demo content. The one exception is a single
- * administrator, because guide verification (doc §4) needs a reviewer before
- * anyone can post a trip — an install with zero admins cannot bootstrap itself.
+ * administrator, because someone has to be able to moderate guides and stories
+ * — an install with zero admins cannot bootstrap itself.
  * Override with OGOD_ADMIN_EMAIL / OGOD_ADMIN_PASSWORD.
  */
 function ensureAdminAccount() {

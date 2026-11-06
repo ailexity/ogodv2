@@ -3,6 +3,7 @@ import path from 'node:path'
 import { randomBytes } from 'node:crypto'
 import jwt from 'jsonwebtoken'
 import { db, DATA_DIR } from './db.js'
+import { getSetting } from './settings.js'
 
 // "Remember me" keeps a session for 30 days; otherwise it lasts a day.
 const TOKEN_TTL = { remember: '30d', session: '1d' }
@@ -39,6 +40,15 @@ export function subscriptionActive(row) {
   return Boolean(row?.subscription_until) && row.subscription_until >= new Date().toISOString().slice(0, 10)
 }
 
+/**
+ * Posting needs no review, only the guide details. A suspension always blocks
+ * it, and so does a lapsed subscription while the admin has that switched on.
+ */
+export function canPostTrips(row) {
+  if (!row?.guide_since || row.guide_status === 'suspended') return false
+  return !getSetting('guide_subscription_required') || subscriptionActive(row)
+}
+
 export function publicUser(row) {
   if (!row) return null
   return {
@@ -54,7 +64,11 @@ export function publicUser(row) {
     languages: JSON.parse(row.languages ?? '[]'),
     guideStatus: row.guide_status,
     certified: Boolean(row.certified),
-    canPostTrips: row.guide_status === 'verified' && subscriptionActive(row),
+    isGuide: Boolean(row.guide_since),
+    canPostTrips: canPostTrips(row),
+    guideAreas: JSON.parse(row.guide_areas ?? '[]'),
+    guideExperience: row.guide_experience,
+    subscriptionRequired: getSetting('guide_subscription_required'),
     subscriptionUntil: row.subscription_until,
     payoutUpi: row.payout_upi,
     payoutBank: row.payout_bank,
@@ -111,15 +125,21 @@ export function requireAdmin(req, res, next) {
   next()
 }
 
-/** Doc §4: a guide cannot post trips until the verification review has approved them. */
-export function requireVerifiedGuide(req, res, next) {
-  if (req.user.guide_status !== 'verified') {
+/** Anyone can post trips once they've given their guide details; there is no review. */
+export function requireGuide(req, res, next) {
+  if (req.user.guide_status === 'suspended') {
     return res.status(403).json({
-      error: 'Only verified guides can post trips',
+      error: 'Your guide account is suspended, contact support',
       guideStatus: req.user.guide_status,
     })
   }
-  if (!subscriptionActive(req.user)) {
+  if (!req.user.guide_since) {
+    return res.status(403).json({
+      error: 'Add your guide details before posting a trip',
+      code: 'guide_details_required',
+    })
+  }
+  if (!canPostTrips(req.user)) {
     return res.status(403).json({
       error: 'Your yearly guide subscription has expired. Renew it from your profile to keep posting trips.',
       code: 'subscription_expired',

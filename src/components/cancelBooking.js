@@ -7,7 +7,7 @@ import { api } from '../api/client.js'
  */
 export async function cancelBookingWithConfirm(booking, tripTitle) {
   const what = booking.status === 'confirmed' ? 'booking' : 'booking request'
-  const paid = booking.paymentStatus && booking.paymentStatus !== 'unpaid'
+  const paid = ['proof_sent', 'received'].includes(booking.paymentStatus)
   const reason = window.prompt(
     `Cancel your ${what} for ${tripTitle}?${paid ? ' Your guide will be asked to arrange your refund.' : ''}\n\nAdd a note for the guide (optional), then press OK.`,
     '',

@@ -49,7 +49,8 @@ function discard(file) {
 const CONVERSATION_QUERY = `
   SELECT c.*,
          tr.name AS traveler_name, tr.guide_status AS traveler_guide_status,
-         g.name AS guide_name, g.guide_status AS guide_status,
+         tr.guide_since AS traveler_guide_since,
+         g.name AS guide_name, g.guide_status AS guide_status, g.guide_since AS guide_guide_since,
          t.title AS trip_title,
          bl.title AS blog_title,
          m.body AS last_body, m.image AS last_image, m.sender_id AS last_sender_id,
@@ -77,13 +78,13 @@ function mapConversation(row, me) {
       ? {
           id: row.guide_id,
           name: row.guide_name,
-          isGuide: row.guide_status === 'verified',
+          isGuide: Boolean(row.guide_guide_since),
           verified: row.guide_status === 'verified',
         }
       : {
           id: row.traveler_id,
           name: row.traveler_name,
-          isGuide: row.traveler_guide_status === 'verified',
+          isGuide: Boolean(row.traveler_guide_since),
           verified: row.traveler_guide_status === 'verified',
         },
     trip: row.trip_id ? { id: row.trip_id, title: row.trip_title } : null,
@@ -243,8 +244,8 @@ router.get('/media/:filename', (req, res) => {
 })
 
 /**
- * Opens (or reuses) the thread with someone. Travellers can write to any
- * verified guide; a guide can write to anyone who booked one of their trips.
+ * Opens (or reuses) the thread with someone. Travellers can write to any guide;
+ * a guide can write to anyone who booked one of their trips.
  */
 router.post('/', startLimit, (req, res) => {
   const me = req.user.id
@@ -253,7 +254,7 @@ router.post('/', startLimit, (req, res) => {
 
   if (!otherId || otherId === me) return res.status(400).json({ error: 'Choose who to message' })
 
-  const other = db.prepare('SELECT id, guide_status, disabled FROM users WHERE id = ?').get(otherId)
+  const other = db.prepare('SELECT id, guide_status, guide_since, disabled FROM users WHERE id = ?').get(otherId)
   if (!other || other.disabled) return res.status(404).json({ error: 'This person is not available' })
 
   const trip = tripId ? db.prepare('SELECT id, guide_id FROM trips WHERE id = ?').get(tripId) : null
@@ -275,7 +276,7 @@ router.post('/', startLimit, (req, res) => {
     }
     travelerId = otherId
     guideId = me
-  } else if (blog?.author_id === otherId || other.guide_status === 'verified') {
+  } else if (blog?.author_id === otherId || other.guide_since || other.guide_status === 'verified') {
     // Anyone can write to a trip's guide or to the writer of a story.
     travelerId = me
     guideId = otherId

@@ -3,6 +3,7 @@ import { api } from '../../api/client.js'
 import { getInitials } from '../TripDetail.jsx'
 import { CloseIcon, SearchIcon, VerifiedIcon } from '../icons.jsx'
 import PasswordInput from '../PasswordInput.jsx'
+import { useBackLayer } from '../../hooks/useBackLayer.js'
 
 const ROLE_FILTERS = [
   { key: '', label: 'Everyone' },
@@ -93,7 +94,7 @@ export default function AdminPeople({ currentUserId }) {
                 <tr>
                   <th>Account</th>
                   <th>Role</th>
-                  <th>Verification</th>
+                  <th>Guide</th>
                   <th className="num">Trips</th>
                   <th className="num">Bookings</th>
                   <th />
@@ -128,12 +129,14 @@ export default function AdminPeople({ currentUserId }) {
                       <span className="role-tag">{person.role}</span>
                     </td>
                     <td>
-                      {person.guideStatus === 'none' ? (
-                        <span className="table-muted">—</span>
-                      ) : (
+                      {person.guideStatus !== 'none' ? (
                         <span className={`status-pill status-${person.guideStatus}`}>
                           {person.guideStatus}
                         </span>
+                      ) : person.isGuide ? (
+                        <span className="status-pill status-tone-info">not verified</span>
+                      ) : (
+                        <span className="table-muted">—</span>
                       )}
                     </td>
                     <td className="num">{person.tripCount}</td>
@@ -142,7 +145,7 @@ export default function AdminPeople({ currentUserId }) {
                       <button type="button" className="ghost-btn" onClick={() => setEditing(person)}>
                         Manage
                       </button>
-                      {['verified', 'suspended'].includes(person.guideStatus) && (
+                      {(person.isGuide || ['verified', 'suspended'].includes(person.guideStatus)) && (
                         <button
                           type="button"
                           className={`ghost-btn${person.guideStatus === 'suspended' ? '' : ' danger'}`}
@@ -197,6 +200,7 @@ function PersonEditor({ person, isSelf, onClose, onChanged, onDeleted }) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  useBackLayer(true, onClose)
 
   function updateProfileField(field, value) {
     setProfile((prev) => ({ ...prev, [field]: value }))

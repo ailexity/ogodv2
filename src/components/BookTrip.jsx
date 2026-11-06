@@ -4,6 +4,7 @@ import { GENDER_OPTIONS } from '../data/categories.js'
 import { formatMoney } from './TripDetail.jsx'
 import { CloseIcon } from './icons.jsx'
 import { formatDateRange } from '../data/dates.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 
 function emptyTraveler() {
   return { name: '', age: '', gender: '' }
@@ -31,9 +32,12 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
   const [submitting, setSubmitting] = useState(false)
 
   const count = party.length
+  const free = !trip.pricePerPerson
+  useBackLayer(true, onClose)
 
   // The server owns the maths, so the summary always asks it for the total.
   useEffect(() => {
+    if (free) return undefined
     let cancelled = false
     setQuoteError('')
     api
@@ -47,7 +51,7 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
     return () => {
       cancelled = true
     }
-  }, [trip.id, count])
+  }, [trip.id, count, free])
 
   function updateTraveler(index, field, value) {
     setParty((prev) => prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)))
@@ -96,7 +100,7 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
         <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
           <CloseIcon />
         </button>
-        <h2 className="edit-header-title">Book trip</h2>
+        <h2 className="edit-header-title">{free ? 'Come along' : 'Book trip'}</h2>
         <span className="edit-header-spacer" />
       </header>
 
@@ -111,7 +115,7 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
             <p className="book-trip-meta">{formatDateRange(trip.startDate, trip.endDate)}</p>
           )}
           <p className="book-trip-meta">
-            {formatMoney(trip.pricePerPerson, trip.currency)} per person ·{' '}
+            {free ? 'Free' : `${formatMoney(trip.pricePerPerson, trip.currency)} per person`} ·{' '}
             {seatsLeft} {seatsLeft === 1 ? 'seat' : 'seats'} left
           </p>
         </div>
@@ -245,6 +249,12 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
             />
           </label>
 
+          {free ? (
+            <p className="field-hint">
+              This trip is free, so there&apos;s nothing to pay. You&apos;re in as soon as you send
+              this, and your ticket arrives in Messages.
+            </p>
+          ) : (
           <div className="form-section">
             <h3 className="form-section-title">Price breakdown</h3>
             {quote ? (
@@ -278,11 +288,12 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
               screenshot in the chat — they confirm your seats once they&apos;ve checked it.
             </p>
           </div>
+          )}
 
           {error && <p className="form-error">{error}</p>}
 
           <button className="submit" type="submit" disabled={submitting}>
-            {submitting ? 'Sending…' : 'Send booking request'}
+            {submitting ? 'Sending…' : free ? 'Count me in' : 'Send booking request'}
           </button>
         </form>
       </div>

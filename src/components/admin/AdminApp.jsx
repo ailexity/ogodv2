@@ -5,10 +5,11 @@ import AdminOverview from './AdminOverview.jsx'
 import AdminPeople from './AdminPeople.jsx'
 import AdminSettings from './AdminSettings.jsx'
 import { getInitials } from '../TripDetail.jsx'
+import { BACK_LEVEL, useBackLayer } from '../../hooks/useBackLayer.js'
 
 const SECTIONS = [
   { key: 'overview', label: 'Overview' },
-  { key: 'verification', label: 'Verification' },
+  { key: 'guides', label: 'Guides' },
   { key: 'people', label: 'People' },
   { key: 'blogs', label: 'Stories' },
   { key: 'settings', label: 'Settings' },
@@ -20,6 +21,7 @@ const SECTIONS = [
  */
 export default function AdminApp({ user, onLogout }) {
   const [section, setSection] = useState('overview')
+  useBackLayer(section !== 'overview', () => setSection('overview'), BACK_LEVEL.tab)
 
   return (
     <div className="console">
@@ -60,7 +62,7 @@ export default function AdminApp({ user, onLogout }) {
 
       <main className="console-body">
         {section === 'overview' && <AdminOverview onJump={setSection} />}
-        {section === 'verification' && <AdminReview />}
+        {section === 'guides' && <AdminReview />}
         {section === 'people' && <AdminPeople currentUserId={user.id} />}
         {section === 'blogs' && <AdminBlogs />}
         {section === 'settings' && <AdminSettings user={user} />}

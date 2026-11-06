@@ -13,6 +13,8 @@
   --bg: #ffffff;
   --surface: #ffffff;
   --surface-alt: #f6f6f7;
+  /* A shade darker than the page, so the sticky app header reads as its own band. */
+  --header-bg: #efeff2;
 
   --border: #e6e6e9;
   --border-strong: #d6d6db;
@@ -402,8 +404,8 @@ body {
   align-items: center;
   gap: 10px;
   padding: max(16px, env(safe-area-inset-top)) 20px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--border-strong);
 }
 
 .brand-mark-sm {
@@ -993,7 +995,8 @@ body {
 
 .profile-logout {
   align-self: center;
-  margin-top: 4px;
+  margin-top: 0;
+  padding: 8px 12px;
 }
 
 .profile-logout-all {
@@ -1121,7 +1124,8 @@ body {
 .edit-save-btn {
   border: none;
   background: none;
-  padding: 4px 2px;
+  padding: 10px 12px;
+  margin: -6px -12px -6px 0;
   font-size: 14px;
   font-weight: 700;
   color: var(--ink);
@@ -1700,7 +1704,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 0 4px 16px;
+  padding: 10px 4px 16px;
 }
 
 .trip-actions .ghost-btn {
@@ -1837,7 +1841,9 @@ body {
   inset: 0;
   background-image: url('/images/auth-hero.jpg');
   background-size: cover;
-  background-position: center;
+  /* Portrait photo: on the short phone banner, sit a little above centre so
+     the mountain's peak and the pagoda roof both stay in frame. */
+  background-position: center 38%;
 }
 
 /* Darkens the bottom of the photo so the white brand and tagline stay legible
@@ -2585,8 +2591,8 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  width: auto;
-  max-width: min(430px, calc(100% - 28px));
+  width: calc(100% - 28px);
+  max-width: 430px;
   padding: 8px 8px 8px 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
@@ -3913,7 +3919,7 @@ body {
   }
 
   .bottom-nav {
-    gap: 2px;
+    gap: 6px;
     padding: 7px 9px;
   }
 
@@ -5247,4 +5253,113 @@ button {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* "Forgot password?" was a 17px-tall target. */
+.auth-page .row .link-button {
+  padding: 8px 0;
+}
+
+/* On phones the form scrolls under a fixed button, so let it scroll away with
+   the photo instead. From 900px the photo is a sticky side panel and the
+   button stays over it. */
+@media (max-width: 899px) {
+  .web-auth-back {
+    position: absolute;
+  }
+}
+
+/* ---------- Home: "Starting soon" row ------------------------------------ */
+
+.rail-section {
+  margin: 22px 0 24px;
+}
+
+.rail-card {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rail-card-media {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 3;
+  background: var(--surface-alt);
+  overflow: hidden;
+}
+
+.rail-card-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rail-card-tag {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.rail-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px 12px;
+}
+
+.rail-card-title {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.rail-card-meta {
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-card-price {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+/* ---------- Guide details and free trips ------------------------------ */
+
+.status-card-edit {
+  margin-top: 10px;
+}
+
+.guide-areas {
+  margin: -4px 0 16px;
+}
+
+.trip-payout-notice {
+  flex-direction: column;
+  margin-bottom: 0;
 }

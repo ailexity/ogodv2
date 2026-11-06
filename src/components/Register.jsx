@@ -76,7 +76,7 @@ export default function Register({ onAuthenticated, onRegistered, onSwitchToLogi
   return (
     <AuthLayout
       title="Create account"
-      subtitle="Tell us a bit about yourself. You can apply to become a guide once you're in."
+      subtitle="Tell us a bit about yourself. You can post trips of your own once you're in."
       footer={
         <p className="switch-text">
           Already have an account?{' '}

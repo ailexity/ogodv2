@@ -1,5 +1,4 @@
 import { randomBytes } from 'node:crypto'
-import { unlink } from 'node:fs/promises'
 import { Router } from 'express'
 import multer from 'multer'
 import { db, UPLOADS_DIR } from '../db.js'
@@ -18,7 +17,7 @@ const EXTENSION = {
 }
 
 const upload = multer({
-  limits: { fileSize: 5 * 1024 * 1024, files: 5 },
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 },
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
     // The client-supplied name is discarded entirely — a random name plus an
@@ -36,14 +35,6 @@ const upload = multer({
     cb(null, true)
   },
 })
-
-const DOCUMENT_FIELDS = [
-  { name: 'idDocument', maxCount: 1 },
-  { name: 'selfie', maxCount: 1 },
-  { name: 'licenseDocument', maxCount: 1 },
-  { name: 'addressProof', maxCount: 1 },
-  { name: 'feeReceipt', maxCount: 1 },
-]
 
 function mapApplication(row) {
   if (!row) return null
@@ -74,101 +65,55 @@ function mapApplication(row) {
   }
 }
 
-function parseList(value) {
-  if (Array.isArray(value)) return value
-  if (typeof value !== 'string' || !value.trim()) return []
-  try {
-    const parsed = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return value.split(',').map((item) => item.trim()).filter(Boolean)
-  }
+function asList(value) {
+  return Array.isArray(value) ? value.map((item) => String(item).trim()).filter(Boolean) : []
 }
 
-const applyLimit = rateLimit({ windowMinutes: 60, max: 5, key: (req) => String(req.user.id) })
+const renewLimit = rateLimit({ windowMinutes: 60, max: 5, key: (req) => String(req.user.id) })
+const detailsLimit = rateLimit({ windowMinutes: 60, max: 20, key: (req) => String(req.user.id) })
 
-/** Runs before the upload, so a request that will be refused never writes files. */
-function canApply(req, res, next) {
-  if (!getSettings().guide_applications_open) {
-    return res.status(403).json({ error: 'Guide applications are closed at the moment' })
-  }
-  if (req.user.guide_status === 'verified') {
-    return res.status(409).json({ error: 'You are already a verified guide' })
-  }
-  if (req.user.guide_status === 'pending') {
-    return res.status(409).json({ error: 'Your application is already under review' })
-  }
+/**
+ * The essentials a guide gives before their first trip, and how they correct
+ * them later. There is no review: saving these is what lets them post.
+ */
+router.put('/details', authenticate, detailsLimit, (req, res) => {
   if (req.user.guide_status === 'suspended') {
     return res.status(403).json({ error: 'Your guide account is suspended, contact support' })
   }
-  next()
-}
-
-/** Doc §4 steps 1–2: apply to become a guide and submit verification documents. */
-router.post('/apply', authenticate, applyLimit, canApply, upload.fields(DOCUMENT_FIELDS), (req, res) => {
-
-  const { yearsExperience, licenseNumber, licenseRegion, licenseExpires, sampleItinerary } =
-    req.body ?? {}
-  const languages = parseList(req.body?.languages)
-  const areas = parseList(req.body?.areas)
-  const files = req.files ?? {}
-
-  const problem = !files.idDocument?.[0]
-    ? 'A government ID is required'
-    : !files.selfie?.[0]
-      ? 'A selfie is required for the liveness match'
-      : !files.addressProof?.[0]
-        ? 'Proof of address is required'
-        : !files.feeReceipt?.[0]
-          ? 'Upload the receipt for your yearly subscription payment'
-        : languages.length === 0
-          ? 'List at least one language you speak'
-          : areas.length === 0
-            ? 'List at least one area you operate in'
-            : null
-  if (problem) {
-    // Nothing references these files yet, so don't leave them on disk.
-    for (const file of Object.values(files).flat()) unlink(file.path).catch(() => {})
-    return res.status(400).json({ error: problem })
+  if (!req.user.guide_since && !getSettings().guide_applications_open) {
+    return res.status(403).json({ error: 'New guides can’t sign up at the moment' })
   }
 
-  const applicationId = db.transaction(() => {
-    const result = db
-      .prepare(
-        `INSERT INTO guide_applications
-           (user_id, years_experience, languages, areas, license_number, license_region,
-            license_expires, sample_itinerary, id_document, selfie, license_document, address_proof,
-            fee_receipt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .run(
-        req.user.id,
-        Number(yearsExperience) || 0,
-        JSON.stringify(languages),
-        JSON.stringify(areas),
-        String(licenseNumber ?? '').trim() || null,
-        String(licenseRegion ?? '').trim() || null,
-        String(licenseExpires ?? '').trim() || null,
-        String(sampleItinerary ?? '').trim() || null,
-        files.idDocument[0].filename,
-        files.selfie[0].filename,
-        files.licenseDocument?.[0]?.filename ?? null,
-        files.addressProof[0].filename,
-        files.feeReceipt[0].filename,
-      )
+  const phone = String(req.body?.phone ?? '').trim()
+  const languages = asList(req.body?.languages)
+  const areas = asList(req.body?.areas)
+  const bio = String(req.body?.bio ?? '').trim()
+  const rawYears = req.body?.yearsExperience
+  const years = rawYears === '' || rawYears == null ? null : Number(rawYears)
 
-    db.prepare("UPDATE users SET guide_status = 'pending', languages = ? WHERE id = ?").run(
-      JSON.stringify(languages),
-      req.user.id,
-    )
+  const problem =
+    phone.replace(/\D/g, '').length < 7
+      ? 'Enter a phone number travellers can reach you on'
+      : languages.length === 0
+        ? 'List at least one language you speak'
+        : areas.length === 0
+          ? 'List at least one area you run trips in'
+          : years !== null && !(Number.isInteger(years) && years >= 0 && years <= 70)
+            ? 'Enter your years of experience as a whole number'
+            : bio.length > 1000
+              ? 'Keep your bio under 1000 characters'
+              : null
+  if (problem) return res.status(400).json({ error: problem })
 
-    return result.lastInsertRowid
-  })()
+  db.prepare(
+    `UPDATE users
+        SET phone = ?, languages = ?, guide_areas = ?, guide_experience = ?, bio = ?,
+            guide_since = COALESCE(guide_since, datetime('now')),
+            role = CASE WHEN role = 'admin' THEN 'admin' ELSE 'guide' END
+      WHERE id = ?`,
+  ).run(phone, JSON.stringify(languages), JSON.stringify(areas), years, bio || null, req.user.id)
 
-  const application = db.prepare('SELECT * FROM guide_applications WHERE id = ?').get(applicationId)
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)
-
-  res.status(201).json({ application: mapApplication(application), user: publicUser(user) })
+  res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id)) })
 })
 
 /** What the yearly guide subscription costs and where to pay it. */
@@ -178,8 +123,8 @@ router.get('/subscription', (_req, res) => {
 })
 
 function canRenew(req, res, next) {
-  if (!['verified', 'suspended'].includes(req.user.guide_status)) {
-    return res.status(409).json({ error: 'Only verified guides renew a subscription' })
+  if (!req.user.guide_since) {
+    return res.status(409).json({ error: 'Add your guide details first' })
   }
   const pending = db
     .prepare("SELECT 1 FROM guide_applications WHERE user_id = ? AND kind = 'renewal' AND status = 'pending'")
@@ -188,8 +133,8 @@ function canRenew(req, res, next) {
   next()
 }
 
-/** A yearly renewal: just the payment receipt, reviewed in the same admin queue. */
-router.post('/renew', authenticate, applyLimit, canRenew, upload.single('feeReceipt'), (req, res) => {
+/** A yearly renewal: just the payment receipt, reviewed in the admin queue. */
+router.post('/renew', authenticate, renewLimit, canRenew, upload.single('feeReceipt'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Upload the receipt for your subscription payment' })
 
   const id = db
@@ -203,18 +148,13 @@ router.post('/renew', authenticate, applyLimit, canRenew, upload.single('feeRece
   res.status(201).json({ renewal: mapApplication(row) })
 })
 
-/** Doc §4 step 5: the guide sees their own status, any rejection reason, and renewals. */
+/** The guide's own latest renewal, so their profile can say where it stands. */
 router.get('/application', authenticate, (req, res) => {
-  const latest = (kind) =>
-    db
-      .prepare('SELECT * FROM guide_applications WHERE user_id = ? AND kind = ? ORDER BY id DESC LIMIT 1')
-      .get(req.user.id, kind)
+  const renewal = db
+    .prepare("SELECT * FROM guide_applications WHERE user_id = ? AND kind = 'renewal' ORDER BY id DESC LIMIT 1")
+    .get(req.user.id)
 
-  res.json({
-    application: mapApplication(latest('verification')),
-    renewal: mapApplication(latest('renewal')),
-    guideStatus: req.user.guide_status,
-  })
+  res.json({ renewal: mapApplication(renewal), guideStatus: req.user.guide_status })
 })
 
 export { mapApplication }

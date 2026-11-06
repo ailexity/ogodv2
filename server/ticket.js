@@ -125,28 +125,32 @@ export function renderTicket(booking, guide, stream) {
 
   // Payment.
   y = sectionTitle(doc, 'Payment', left, y)
-  const currency = trip.currency
-  const base = booking.totalPaid - booking.serviceFee - booking.tax
-  const lines = [
-    [`Trip fare (${booking.travelers} x ${money(trip.pricePerPerson, currency)})`, money(base, currency)],
-    ['Service fee', money(booking.serviceFee, currency)],
-    ['Taxes', money(booking.tax, currency)],
-  ]
-  for (const [label, value] of lines) {
-    doc.font('Helvetica').fontSize(10).fillColor(SOFT).text(label, left, y)
-    doc.text(value, left, y, { width, align: 'right' })
-    y += 18
+  if (booking.totalPaid > 0) {
+    const currency = trip.currency
+    const base = booking.totalPaid - booking.serviceFee - booking.tax
+    const lines = [
+      [`Trip fare (${booking.travelers} x ${money(trip.pricePerPerson, currency)})`, money(base, currency)],
+      ['Service fee', money(booking.serviceFee, currency)],
+      ['Taxes', money(booking.tax, currency)],
+    ]
+    for (const [label, value] of lines) {
+      doc.font('Helvetica').fontSize(10).fillColor(SOFT).text(label, left, y)
+      doc.text(value, left, y, { width, align: 'right' })
+      y += 18
+    }
+    doc.moveTo(left, y + 2).lineTo(left + width, y + 2).strokeColor(BORDER).stroke()
+    y += 12
+    doc.font('Helvetica-Bold').fontSize(12).fillColor(INK).text('Total paid', left, y)
+    doc.text(money(booking.totalPaid, currency), left, y, { width, align: 'right' })
+    y += 22
+    doc
+      .font('Helvetica')
+      .fontSize(9)
+      .fillColor(FAINT)
+      .text('Paid directly to your guide and verified by them in OGod messages.', left, y, { width })
+  } else {
+    doc.font('Helvetica').fontSize(10).fillColor(SOFT).text('This is a free trip. There is nothing to pay.', left, y, { width })
   }
-  doc.moveTo(left, y + 2).lineTo(left + width, y + 2).strokeColor(BORDER).stroke()
-  y += 12
-  doc.font('Helvetica-Bold').fontSize(12).fillColor(INK).text('Total paid', left, y)
-  doc.text(money(booking.totalPaid, currency), left, y, { width, align: 'right' })
-  y += 22
-  doc
-    .font('Helvetica')
-    .fontSize(9)
-    .fillColor(FAINT)
-    .text('Paid directly to your guide and verified by them in OGod messages.', left, y, { width })
 
   // Footer.
   const issued = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })

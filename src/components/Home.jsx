@@ -16,12 +16,13 @@ import { useShuffled } from '../hooks/useShuffled.js'
 import { cancelBookingWithConfirm } from './cancelBooking.js'
 import { formatDateRange, timeAgo, tripCountdown } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
+import { BACK_LEVEL, useBackLayer } from '../hooks/useBackLayer.js'
 import { BlogComposer, BlogDetailOverlay, BlogsAllOverlay, BlogsSection } from './Blogs.jsx'
-import GuideVerification, {
+import GuideDetails, {
   GuideStatusCard,
   PayoutDetails,
   SubscriptionRenewal,
-} from './GuideVerification.jsx'
+} from './GuideDetails.jsx'
 import { ChatThread, MessagesInbox, useChatLauncher, useUnreadMessages } from './Messages.jsx'
 import TripApplicants from './TripApplicants.jsx'
 import TripForm from './TripForm.jsx'
@@ -37,6 +38,7 @@ import {
   CheckIcon,
   ChevronRightIcon,
   CloseIcon,
+  CompassIcon,
   HeartIcon,
   HomeIcon,
   MessageIcon,
@@ -60,6 +62,17 @@ function loadNotificationSettings() {
   } catch {
     return DEFAULT_NOTIFICATION_SETTINGS
   }
+}
+
+/** How many trips the "Starting soon" row shows. */
+const STARTING_SOON_COUNT = 6
+
+/** The soonest dated trips, for the "Starting soon" row. */
+function soonest(rows) {
+  return rows
+    .filter((trip) => trip.startDate)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .slice(0, STARTING_SOON_COUNT)
 }
 
 const BASE_TABS = [
@@ -86,6 +99,7 @@ export const FILTERS = [
     key: 'maxPrice',
     label: 'Budget',
     options: [
+      { label: 'Free trips', value: 0 },
       { label: 'Under $500', value: 500 },
       { label: 'Under $1,000', value: 1000 },
       { label: 'Under $2,000', value: 2000 },
@@ -124,10 +138,10 @@ export const FILTERS = [
 ]
 
 const TERMS_TEXT = [
-  'By using OGod, you agree to book and travel responsibly, and to provide accurate information when creating an account or applying to become a guide.',
-  'Only verified guides may post trips. Verification checks identity documents and, where a region requires one, a tour-guide licence.',
-  'Trips listed on OGod are run by independent guides. OGod verifies identity but is not responsible for the outcome of any trip.',
-  'Your personal information is used only to operate your account and is never sold to third parties. Verification documents are visible only to our review team.',
+  'By using OGod, you agree to book and travel responsibly, and to provide accurate information when creating an account or posting a trip.',
+  'Anyone can post a trip once they have given their guide details. OGod does not review guides before they post, so only a guide showing the Verified badge has had their documents checked.',
+  'Trips listed on OGod are run by independent guides. OGod is not responsible for the outcome of any trip, and can suspend a guide who breaks these terms.',
+  'Your personal information is used only to operate your account and is never sold to third parties. Any verification documents are visible only to our review team.',
   'These terms may be updated from time to time. Continued use of the app means you accept the latest version.',
 ]
 
@@ -135,8 +149,9 @@ const TERMS_TEXT = [
  * The phone app. `user` is null for a signed-out visitor, who can browse trips
  * and stories; anything that needs an account calls `onSignIn` instead.
  * `tourReady` is false while something (the welcome board) covers the app.
+ * `startCreating` opens with the create sheet up.
  */
-export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady = true }) {
+export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady = true, startCreating = false }) {
   const [activeTab, setActiveTab] = useState('home')
   const [trips, setTrips] = useState([])
   const [myTrips, setMyTrips] = useState([])
@@ -144,6 +159,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const [loadingBookings, setLoadingBookings] = useState(true)
   const [loadingTrips, setLoadingTrips] = useState(true)
   const [loadError, setLoadError] = useState('')
+  const [startingSoon, setStartingSoon] = useState([])
   const [activeCategory, setActiveCategory] = useState(null)
   const [filterValues, setFilterValues] = useState({})
   const [openFilter, setOpenFilter] = useState(null)
@@ -152,8 +168,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const [notifSettings, setNotifSettings] = useState(loadNotificationSettings)
   const [editingProfile, setEditingProfile] = useState(false)
   const [tripFormState, setTripFormState] = useState(null)
-  const [applying, setApplying] = useState(false)
-  const [application, setApplication] = useState(null)
+  // The guide details form: `{ free }` on the way to posting a trip, or `{ editing: true }`.
+  const [guideDetails, setGuideDetails] = useState(null)
   const [bookingTrip, setBookingTrip] = useState(null)
   const [applicantsTrip, setApplicantsTrip] = useState(null)
   const [blogs, setBlogs] = useState([])
@@ -161,14 +177,13 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const [composingBlog, setComposingBlog] = useState(false)
   const [viewingBlog, setViewingBlog] = useState(null)
   const [viewingAllBlogs, setViewingAllBlogs] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [creating, setCreating] = useState(startCreating)
   const chat = useChatLauncher()
   const [unreadMessages, refreshUnread] = useUnreadMessages(Boolean(user))
   const [renewal, setRenewal] = useState(null)
   const [renewing, setRenewing] = useState(false)
   const [editingPayout, setEditingPayout] = useState(false)
   const signedIn = Boolean(user)
-  const guideStatus = user?.guideStatus ?? 'none'
 
   /** Tabs that only make sense with an account send visitors to sign in. */
   function selectTab(key) {
@@ -181,6 +196,14 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const shuffledBlogs = useShuffled(blogs)
 
   const [changingPassword, setChangingPassword] = useState(false)
+
+  // Back leaves another tab for home, and closes the sheets declared in this
+  // component. Overlays with their own component register themselves.
+  useBackLayer(activeTab !== 'home', () => setActiveTab('home'), BACK_LEVEL.tab)
+  useBackLayer(Boolean(openFilter), () => setOpenFilter(null))
+  useBackLayer(creating, () => setCreating(false))
+  useBackLayer(Boolean(openInfoSheet), () => setOpenInfoSheet(null))
+  useBackLayer(changingPassword, () => setChangingPassword(false))
 
   // Every step points at something on the home tab.
   const [touring, setTouring] = useState(false)
@@ -245,6 +268,9 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     try {
       const { trips: rows } = await api.listTrips({ category: activeCategory, ...filterValues })
       setTrips(rows)
+      // Only the unfiltered feed refreshes the row, so picking a category
+      // below it doesn't empty it.
+      if (!activeCategory && Object.keys(filterValues).length === 0) setStartingSoon(soonest(rows))
       setLoadError('')
     } catch (err) {
       setLoadError(err.message)
@@ -302,19 +328,16 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     loadBlogs()
   }, [loadBlogs])
 
-  const loadApplication = useCallback(() => {
+  const loadRenewal = useCallback(() => {
     api
       .myApplication()
-      .then(({ application: row, renewal: next }) => {
-        setApplication(row)
-        setRenewal(next)
-      })
-      .catch(() => setApplication(null))
+      .then(({ renewal: next }) => setRenewal(next))
+      .catch(() => setRenewal(null))
   }, [])
 
   useEffect(() => {
-    if (guideStatus !== 'none') loadApplication()
-  }, [guideStatus, loadApplication])
+    if (user?.isGuide && user.subscriptionRequired) loadRenewal()
+  }, [user?.isGuide, user?.subscriptionRequired, loadRenewal])
 
   const activeFilterCount = Object.keys(filterValues).length
 
@@ -345,13 +368,24 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     })
   }
 
-  /** Doc §4 step 6: the post button only opens the composer for a verified guide. */
-  function handlePostIntent() {
-    if (user?.canPostTrips) setTripFormState({ trip: null })
-    else {
-      setActiveTab('profile')
-      setApplying(user?.guideStatus === 'none' || user?.guideStatus === 'rejected')
-    }
+  /**
+   * Anyone can post a trip. The first time, they give their guide details; someone
+   * who can't post (suspended, or a lapsed subscription) sees why on their profile.
+   */
+  function startTrip(free = false) {
+    setCreating(false)
+    if (!signedIn) onSignIn('login')
+    else if (user.canPostTrips) setTripFormState({ trip: null, free })
+    else if (user.isGuide || user.guideStatus === 'suspended') setActiveTab('profile')
+    else setGuideDetails({ free })
+  }
+
+  function handleGuideDetailsSaved(updated) {
+    onUserChange(updated)
+    setGuideDetails(null)
+    if (guideDetails.editing) return
+    if (updated.canPostTrips) setTripFormState({ trip: null, free: guideDetails.free })
+    else setActiveTab('profile')
   }
 
   async function handleTripSaved() {
@@ -405,11 +439,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     if (conversationId) chat.setChatId(conversationId)
   }
 
-  function handleApplicationSubmitted(updatedUser) {
-    setApplying(false)
-    onUserChange(updatedUser)
-  }
-
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -418,7 +447,11 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
             {user ? `Hello, ${user.name.split(' ')[0]}` : 'Discover trips'}
           </h1>
           <p className="greeting-sub">
-            {user?.canPostTrips ? 'Verified guide' : 'Book trips of your favorite places'}
+            {user?.guideStatus === 'verified'
+              ? 'Verified guide'
+              : user?.canPostTrips
+                ? 'Tour guide'
+                : 'Book trips of your favorite places'}
           </p>
         </div>
         {!user && (
@@ -446,7 +479,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
           aria-label="Your profile"
         >
           {getInitials(user.name)}
-          {user?.canPostTrips && (
+          {user?.guideStatus === 'verified' && (
             <span className="greeting-verified" aria-hidden="true">
               <VerifiedIcon />
             </span>
@@ -488,6 +521,17 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
               onSelect={setViewingBlog}
               onSeeAll={() => setViewingAllBlogs(true)}
             />
+
+            {startingSoon.length > 0 && (
+              <section className="rail-section" aria-label="Starting soon">
+                <h2 className="home-heading">Starting soon</h2>
+                <div className="scroll-row">
+                  {startingSoon.map((trip) => (
+                    <RailTripCard key={trip.id} trip={trip} onSelect={() => setSelectedTrip(trip)} />
+                  ))}
+                </div>
+              </section>
+            )}
 
             <h2 className="home-heading">Select your next trip</h2>
 
@@ -531,15 +575,15 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
                       : 'No trips have been published yet.'}
                   </p>
                   <p className="field-hint">
-                    {user?.canPostTrips
+                    {signedIn
                       ? 'Post the first one and it will show up here.'
-                      : 'Once verified guides publish trips, you can browse and book them here.'}
+                      : 'Once guides publish trips, you can browse and book them here.'}
                   </p>
-                  {user?.canPostTrips && (
+                  {signedIn && (
                     <button
                       type="button"
                       className="submit empty-state-cta"
-                      onClick={handlePostIntent}
+                      onClick={() => setCreating(true)}
                     >
                       Create a trip
                     </button>
@@ -569,7 +613,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
             listings={myTrips}
             saved={saved}
             onSelectTrip={setSelectedTrip}
-            onCreateTrip={handlePostIntent}
+            onCreateTrip={() => setCreating(true)}
             onEditTrip={(trip) => setTripFormState({ trip })}
             onStatusChange={handleStatusChange}
             onDuplicate={handleDuplicate}
@@ -585,7 +629,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
               <div className="profile-avatar">{getInitials(user.name)}</div>
               <h2 className="profile-name">
                 {user.name}
-                {user.canPostTrips && (
+                {user.guideStatus === 'verified' && (
                   <span className="verified-badge" title="Verified guide">
                     <VerifiedIcon />
                   </span>
@@ -596,9 +640,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
 
             <GuideStatusCard
               user={user}
-              application={application}
               renewal={renewal}
-              onApply={() => setApplying(true)}
+              onEditDetails={() => setGuideDetails({ editing: true })}
               onRenew={() => setRenewing(true)}
             />
 
@@ -633,7 +676,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
             )}
 
             <div className="profile-menu">
-              {['verified', 'suspended'].includes(user.guideStatus) && (
+              {user.isGuide && (
                 <button
                   type="button"
                   className="profile-menu-item"
@@ -779,25 +822,17 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
                   setComposingBlog(true)
                 }}
               />
-              {user?.canPostTrips && (
-                <CreateOption
-                  Icon={TripsIcon}
-                  title="Post a trip"
-                  text="List a new trip for travellers to book."
-                  onClick={() => {
-                    setCreating(false)
-                    setTripFormState({ trip: null })
-                  }}
-                />
-              )}
               <CreateOption
-                Icon={MessageIcon}
-                title="Messages"
-                text="Chat with guides and travellers, and share photos."
-                onClick={() => {
-                  setCreating(false)
-                  chat.setInboxOpen(true)
-                }}
+                Icon={TripsIcon}
+                title="Post a trip"
+                text="List a trip with a price for travellers to book."
+                onClick={() => startTrip()}
+              />
+              <CreateOption
+                Icon={CompassIcon}
+                title="Free trip — just come along"
+                text="No fee and no payment. People simply join you."
+                onClick={() => startTrip(true)}
               />
             </div>
           </div>
@@ -910,10 +945,11 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
 
       {renewing && (
         <SubscriptionRenewal
+          user={user}
           onClose={() => setRenewing(false)}
           onSubmitted={() => {
             setRenewing(false)
-            loadApplication()
+            loadRenewal()
           }}
         />
       )}
@@ -929,16 +965,21 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
         />
       )}
 
-      {applying && (
-        <GuideVerification
-          onClose={() => setApplying(false)}
-          onSubmitted={handleApplicationSubmitted}
+      {guideDetails && (
+        <GuideDetails
+          user={user}
+          requirePayout={guideDetails.free === false}
+          onClose={() => setGuideDetails(null)}
+          onSaved={handleGuideDetailsSaved}
         />
       )}
 
       {tripFormState && (
         <TripForm
           trip={tripFormState.trip}
+          free={tripFormState.free}
+          user={user}
+          onUserChange={onUserChange}
           onClose={() => setTripFormState(null)}
           onSaved={handleTripSaved}
         />
@@ -1136,6 +1177,26 @@ function HeroTripCard({ trip, onSelect, tourTarget = false }) {
   )
 }
 
+/** A compact card for the horizontally scrolling "Starting soon" row. */
+function RailTripCard({ trip, onSelect }) {
+  const now = useNow()
+
+  return (
+    <button type="button" className="rail-card" onClick={onSelect}>
+      <span className="rail-card-media">
+        <TripCover trip={trip} />
+        <span className="rail-card-tag">{tripCountdown(trip, now)}</span>
+      </span>
+      <span className="rail-card-body">
+        <span className="rail-card-title">{trip.title}</span>
+        <span className="rail-card-meta">{trip.destination}</span>
+        <span className="rail-card-meta">{formatDateRange(trip.startDate, trip.endDate)}</span>
+        <span className="rail-card-price">{formatPrice(trip)}</span>
+      </span>
+    </button>
+  )
+}
+
 function TripRow({ trip, onClick, showStatus }) {
   return (
     <button type="button" className="trip-row" onClick={onClick}>
@@ -1229,7 +1290,7 @@ function ExploreTab({ onSelectTrip }) {
 
 /**
  * "My Trips" is the traveler's own history — the trips they booked and
- * attended. A verified guide can switch to the listings they publish, which is
+ * attended. A guide can switch to the listings they publish, which is
  * a separate concept with its own lifecycle controls (doc §5 steps 5–9).
  */
 function MyTripsTab({
@@ -1505,6 +1566,7 @@ function ListingsList({
 
 function CancelTripSheet({ trip, onClose, onConfirm }) {
   const [reason, setReason] = useState('')
+  useBackLayer(true, onClose)
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>
@@ -1550,6 +1612,7 @@ function EditProfileOverlay({ user, onClose, onSaved }) {
   const [interests, setInterests] = useState(user.interests ?? [])
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  useBackLayer(true, onClose)
 
   function handleChange(e) {
     const { name, value } = e.target
@@ -1653,7 +1716,7 @@ function EditProfileOverlay({ user, onClose, onSaved }) {
             />
           </label>
 
-          {user.guideStatus === 'verified' && (
+          {user.isGuide && (
             <label className="field">
               <span className="field-label">Guide bio</span>
               <textarea

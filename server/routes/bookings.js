@@ -264,7 +264,9 @@ router.post('/:id/cancel', authenticate, (req, res) => {
     `I’ve cancelled my ${row.status === 'confirmed' ? 'booking' : 'booking request'} for ${row.trip_title} (${row.travelers} ${row.travelers === 1 ? 'traveller' : 'travellers'}).`,
   ]
   if (reason) lines.push(`Reason: ${reason}`)
-  if (row.payment_status !== 'unpaid') lines.push('I’ve already paid — please arrange my refund.')
+  if (['proof_sent', 'received'].includes(row.payment_status)) {
+    lines.push('I’ve already paid — please arrange my refund.')
+  }
 
   db.transaction(() => {
     db.prepare("UPDATE bookings SET status = 'cancelled', cancelled_by = 'traveler' WHERE id = ?").run(row.id)
@@ -369,20 +371,23 @@ router.post('/', authenticate, (req, res) => {
   }
 
   const price = priceBooking(trip.price_per_person, travelers)
-  // Every booking waits until the guide has checked the payment and approved it.
-  const status = 'pending'
+  // A paid booking waits until the guide has checked the payment and approved it.
+  // A free trip has nothing to check, so people are in as soon as they join.
+  const free = !trip.price_per_person
+  const status = free ? 'confirmed' : 'pending'
 
   const bookingId = db.transaction(() => {
     const result = db
       .prepare(
-        `INSERT INTO bookings (trip_id, user_id, travelers, status, total_paid, service_fee, tax, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO bookings (trip_id, user_id, travelers, status, payment_status, total_paid, service_fee, tax, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         trip.id,
         req.user.id,
         travelers,
         status,
+        free ? 'not_required' : 'unpaid',
         price.total,
         price.serviceFee,
         price.tax,
@@ -408,7 +413,9 @@ router.post('/', authenticate, (req, res) => {
     return result.lastInsertRowid
   })()
 
-  // The guide's automatic reply: thanks, the amount, and where to pay.
+  // The guide's automatic reply: thanks, the amount, and where to pay. On a free
+  // trip it's the traveller saying they're coming, so the guide gets the unread
+  // badge, and both of them get the ticket card.
   const guide = db
     .prepare('SELECT name, payout_upi, payout_bank FROM users WHERE id = ?')
     .get(trip.guide_id)
@@ -417,15 +424,25 @@ router.post('/', authenticate, (req, res) => {
     guideId: trip.guide_id,
     tripId: trip.id,
     bookingId,
-    kind: 'booking_request',
-    body: paymentRequestText({
-      travelerName: cleaned[0].name,
-      tripTitle: trip.title,
-      travelers,
-      total: price.total,
-      currency: trip.currency,
-      guide,
-    }),
+    ...(free
+      ? {
+          kind: 'ticket',
+          senderId: req.user.id,
+          body: `I’m coming along on ${trip.title}${
+            travelers > 1 ? ` — ${travelers} of us` : ''
+          }!`,
+        }
+      : {
+          kind: 'booking_request',
+          body: paymentRequestText({
+            travelerName: cleaned[0].name,
+            tripTitle: trip.title,
+            travelers,
+            total: price.total,
+            currency: trip.currency,
+            guide,
+          }),
+        }),
   })
 
   const row = db.prepare(`${BOOKING_SELECT} WHERE b.id = ?`).get(bookingId)

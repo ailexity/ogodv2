@@ -15,13 +15,13 @@ const STEPS = [
   },
   {
     Icon: ShieldIcon,
-    title: 'Travel with a verified guide',
-    text: 'Every guide passes an ID, address and licence review before they can list a trip.',
+    title: 'Get to know your guide',
+    text: 'See where they run trips and the languages they speak, and message them before you book. A Verified badge means OGod has checked their documents.',
   },
   {
     Icon: CheckIcon,
     title: 'Book and pay the guide',
-    text: 'Send a request, pay your guide directly, and get your PDF ticket once they confirm.',
+    text: 'Send a request, pay your guide directly, and get your PDF ticket once they confirm. On a free trip, just come along.',
   },
 ]
 
@@ -92,7 +92,7 @@ export default function WebBrowse({ user, onSignIn, onMessageAuthor }) {
         <div className="web-container web-hero-inner">
           <div className="web-hero-copy">
             <h1>Travel with people who know the way.</h1>
-            <p>Small-group trips led by verified local guides. No app needed — book right here.</p>
+            <p>Small-group trips led by local guides. No app needed — book right here.</p>
             <form
               className="web-search"
               onSubmit={(e) => {
@@ -104,7 +104,11 @@ export default function WebBrowse({ user, onSignIn, onMessageAuthor }) {
               <input
                 type="search"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value)
+                  // Emptying the box shows everything again, without pressing Search.
+                  if (!e.target.value.trim()) setSearch('')
+                }}
                 placeholder="Where do you want to go?"
                 aria-label="Search trips by title or destination"
               />

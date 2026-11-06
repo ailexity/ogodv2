@@ -107,7 +107,7 @@ export default function WebTripPage({ tripId, user, onMessageGuide, onSignIn }) 
           <RatingBadge rating={trip.rating} />
           {trip.reviewCount > 0 && <span className="web-faint">{trip.reviewCount} reviews</span>}
           <span className="chip chip-static">{trip.category}</span>
-
+          {!trip.pricePerPerson && <span className="chip chip-static">Free · just come along</span>}
         </div>
       </header>
 
@@ -134,9 +134,13 @@ export default function WebTripPage({ tripId, user, onMessageGuide, onSignIn }) 
               <p className="web-faint">
                 {trip.guide.verified ? 'Verified guide' : 'Guide'}
                 {trip.guide.certified && ' · Certified'}
+                {trip.guide.yearsExperience > 0 && ` · ${trip.guide.yearsExperience} yrs experience`}
               </p>
               {trip.guide.bio && <p className="web-guide-bio">{trip.guide.bio}</p>}
-              {trip.guide.verified && trip.guide.id !== user?.id && (
+              {trip.guide.areas?.length > 0 && (
+                <p className="web-faint">Runs trips in {trip.guide.areas.join(', ')}</p>
+              )}
+              {trip.guide.id !== user?.id && (
                 <button type="button" className="web-btn-ghost web-guide-message" onClick={() => onMessageGuide(trip)}>
                   <MessageIcon />
                   Message {trip.guide.name.split(' ')[0]}
@@ -249,6 +253,7 @@ export default function WebTripPage({ tripId, user, onMessageGuide, onSignIn }) 
 function BookingCard({ trip, user, booking, now, onCancelled }) {
   const [cancelError, setCancelError] = useState('')
   const seatsLeft = trip.seatsLeft ?? trip.maxGroupSize
+  const free = !trip.pricePerPerson
   const [travelers, setTravelers] = useState(1)
   const { quote, error } = useQuote(trip.id, travelers)
 
@@ -269,8 +274,8 @@ function BookingCard({ trip, user, booking, now, onCancelled }) {
   return (
     <div className="web-book-card">
       <p className="web-book-price">
-        <strong>{trip.pricePerPerson ? formatMoney(trip.pricePerPerson, trip.currency) : 'Free'}</strong>
-        <span> per person</span>
+        <strong>{free ? 'Free' : formatMoney(trip.pricePerPerson, trip.currency)}</strong>
+        <span>{free ? ' · just come along' : ' per person'}</span>
       </p>
       {trip.bookingDeadline && open && (
         <p className="web-faint">
@@ -284,8 +289,8 @@ function BookingCard({ trip, user, booking, now, onCancelled }) {
             {BOOKING_STATUS[booking.status].label}
           </span>
           <p>
-            You’ve booked this trip for {booking.travelers}{' '}
-            {booking.travelers === 1 ? 'traveller' : 'travellers'}.
+            {free ? 'You’re coming along on this trip' : 'You’ve booked this trip'} for{' '}
+            {booking.travelers} {booking.travelers === 1 ? 'traveller' : 'travellers'}.
           </p>
           <a href="#/my-trips" className="web-btn web-btn-block">
             View my trips
@@ -335,17 +340,19 @@ function BookingCard({ trip, user, booking, now, onCancelled }) {
             {seatsLeft} {seatsLeft === 1 ? 'seat' : 'seats'} left
           </p>
 
-          <PriceSummary trip={trip} travelers={travelers} quote={quote} error={error} />
+          {!free && <PriceSummary trip={trip} travelers={travelers} quote={quote} error={error} />}
 
           <button
             type="button"
             className="web-btn web-btn-block web-btn-lg"
             onClick={() => navigate(`/trips/${trip.id}/book?n=${travelers}`)}
           >
-            Request to book
+            {free ? 'Come along' : 'Request to book'}
           </button>
           <p className="web-faint web-center">
-            You pay the guide directly. They confirm your seats once they’ve checked the payment.
+            {free
+              ? 'Nothing to pay. You’re in as soon as you confirm your details.'
+              : 'You pay the guide directly. They confirm your seats once they’ve checked the payment.'}
           </p>
         </>
       )}

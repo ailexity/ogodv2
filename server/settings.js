@@ -29,14 +29,20 @@ export const SETTING_DEFINITIONS = {
     max: 0.5,
   },
   guide_applications_open: {
-    label: 'Guide applications',
-    hint: 'When off, travelers cannot submit new verification applications.',
+    label: 'New guides',
+    hint: 'When off, people who are not guides yet cannot start posting trips.',
     type: 'boolean',
     default: true,
   },
+  guide_subscription_required: {
+    label: 'Require guide subscription',
+    hint: 'When on, guides need a paid-up yearly subscription to post trips. When off, posting is free for everyone.',
+    type: 'boolean',
+    default: false,
+  },
   guide_subscription_fee: {
     label: 'Guide subscription (₹ per year)',
-    hint: 'What a guide pays OGod each year to stay verified and post trips.',
+    hint: 'What a guide pays OGod each year, while the subscription is required.',
     type: 'amount',
     default: 3000,
     min: 0,
@@ -44,7 +50,7 @@ export const SETTING_DEFINITIONS = {
   },
   platform_upi: {
     label: 'OGod UPI ID',
-    hint: 'Where guides pay the yearly subscription. Shown on the guide application.',
+    hint: 'Where guides pay the yearly subscription, while it is required.',
     type: 'text',
     default: '',
     maxLength: 100,

@@ -112,7 +112,7 @@ export default function WebSite({ user, onSignIn, onOpenApp, onLogout }) {
             <span className="brand-mark brand-mark-sm">O</span>
             <span className="brand-name">OGod</span>
           </div>
-          <p>Small-group trips with verified local guides.</p>
+          <p>Small-group trips with local guides.</p>
           <p className="web-footer-faint">© {new Date().getFullYear()} OGod</p>
         </div>
       </footer>
@@ -153,6 +153,13 @@ function WebNav({ user, route, unread, onOpenMessages, onSignIn, onOpenApp, onLo
         </nav>
 
         <div className="web-nav-actions">
+          <button
+            type="button"
+            className="web-btn-ghost"
+            onClick={() => (user ? onOpenApp('create') : onSignIn('login'))}
+          >
+            Post a trip
+          </button>
           {user && (
             <button
               type="button"

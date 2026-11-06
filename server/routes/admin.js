@@ -63,14 +63,17 @@ function decide(applicationId, decision, adminId, notes, certified) {
         ).run(application.user_id)
       }
     } else if (decision === 'approved') {
-      // Doc §4 step 6: approval flips the profile live and unlocks "Post a Trip".
+      // Applications from before posting opened up. Approving one grants the
+      // Verified badge, and the application itself counts as their guide details.
       // An admin who applies keeps their admin role.
       db.prepare(
         `UPDATE users SET guide_status = 'verified', certified = ?,
                 subscription_until = date('now', '+1 year'),
+                guide_since = COALESCE(guide_since, datetime('now')),
+                guide_areas = ?, guide_experience = ?,
                 role = CASE WHEN role = 'admin' THEN 'admin' ELSE 'guide' END
           WHERE id = ?`,
-      ).run(certified ? 1 : 0, application.user_id)
+      ).run(certified ? 1 : 0, application.areas, application.years_experience, application.user_id)
     } else {
       db.prepare("UPDATE users SET guide_status = 'rejected' WHERE id = ?").run(application.user_id)
     }
@@ -106,16 +109,24 @@ router.post('/applications/:id/reject', (req, res) => {
   res.json({ user: publicUser(user) })
 })
 
-/** Doc §4 step 7: ongoing trust maintenance — suspend or reinstate a verified guide. */
+/**
+ * Doc §4 step 7: ongoing trust maintenance. With no review before someone posts,
+ * this is what stops a bad actor, so it covers every guide and not just verified ones.
+ */
 router.post('/guides/:id/suspend', (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id))
   if (!user) return res.status(404).json({ error: 'User not found' })
-  if (user.guide_status !== 'verified') {
-    return res.status(409).json({ error: 'Only a verified guide can be suspended' })
+  if (user.guide_status === 'suspended') {
+    return res.status(409).json({ error: 'This guide is already suspended' })
+  }
+  if (!user.guide_since && user.guide_status !== 'verified') {
+    return res.status(409).json({ error: 'Only a guide can be suspended' })
   }
 
   db.transaction(() => {
-    db.prepare("UPDATE users SET guide_status = 'suspended' WHERE id = ?").run(user.id)
+    db.prepare("UPDATE users SET suspended_from = guide_status, guide_status = 'suspended' WHERE id = ?").run(
+      user.id,
+    )
     // A suspended guide's open listings must stop taking bookings immediately.
     db.prepare(
       `UPDATE trips SET status = 'booking_closed', updated_at = datetime('now')
@@ -133,7 +144,10 @@ router.post('/guides/:id/reinstate', (req, res) => {
     return res.status(409).json({ error: 'This guide is not suspended' })
   }
 
-  db.prepare("UPDATE users SET guide_status = 'verified' WHERE id = ?").run(user.id)
+  // Guides suspended before `suspended_from` existed could only have been verified.
+  db.prepare(
+    "UPDATE users SET guide_status = COALESCE(suspended_from, 'verified'), suspended_from = NULL WHERE id = ?",
+  ).run(user.id)
   res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) })
 })
 
@@ -276,11 +290,18 @@ router.patch('/users/:id/role', (req, res) => {
 
   db.transaction(() => {
     db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, target.id)
-    // Posting rights follow guide_status, so it has to move with the role.
+    // Making someone a guide here is the admin vouching for them, so it carries
+    // the Verified badge; they still give their guide details before posting.
     if (role === 'guide' && target.guide_status !== 'suspended') {
       db.prepare("UPDATE users SET guide_status = 'verified' WHERE id = ?").run(target.id)
-    } else if (role === 'traveler' && ['verified', 'suspended'].includes(target.guide_status)) {
-      db.prepare("UPDATE users SET guide_status = 'none', certified = 0 WHERE id = ?").run(target.id)
+    } else if (role === 'traveler' && (target.guide_since || ['verified', 'suspended'].includes(target.guide_status))) {
+      // A suspension survives this. Anyone can become a guide again, so clearing
+      // it here would be a way round it.
+      db.prepare(
+        `UPDATE users SET guide_since = NULL, certified = 0,
+                guide_status = CASE WHEN guide_status = 'suspended' THEN 'suspended' ELSE 'none' END
+          WHERE id = ?`,
+      ).run(target.id)
       db.prepare(
         `UPDATE trips SET status = 'booking_closed', updated_at = datetime('now')
           WHERE guide_id = ? AND status IN ('published', 'booking_open')`,
@@ -406,7 +427,7 @@ router.patch('/settings', (req, res) => {
 
 router.get('/guides', (_req, res) => {
   const rows = db
-    .prepare("SELECT * FROM users WHERE guide_status != 'none' ORDER BY name")
+    .prepare("SELECT * FROM users WHERE guide_since IS NOT NULL OR guide_status != 'none' ORDER BY name")
     .all()
   res.json({ guides: rows.map(publicUser) })
 })

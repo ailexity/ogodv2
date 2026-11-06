@@ -4,7 +4,7 @@ import { cancelBookingWithConfirm } from '../cancelBooking.js'
 import { beforeTripStarts, formatDateRange, timeAgo, tripCountdown } from '../../data/dates.js'
 import { useNow } from '../../hooks/useNow.js'
 import { BOOKING_STATUS } from '../../data/categories.js'
-import { TripCover, formatMoney } from '../TripDetail.jsx'
+import { TripCover, moneyOrFree } from '../TripDetail.jsx'
 import WebTripCard from './WebTripCard.jsx'
 
 const GROUPS = [
@@ -124,7 +124,7 @@ function BookingRow({ booking, onChanged }) {
       </div>
       <div className="web-booking-side">
         <span className={`status-pill status-tone-${status.tone}`}>{status.label}</span>
-        <strong>{formatMoney(booking.totalPaid, trip.currency)}</strong>
+        <strong>{moneyOrFree(booking.totalPaid, trip.currency)}</strong>
         {hasTicket && (
           <button
             type="button"

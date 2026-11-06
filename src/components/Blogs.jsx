@@ -11,6 +11,7 @@ import {
 } from './icons.jsx'
 import { timeAgo } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 
 /** The horizontally-scrolling "Travel stories" strip on the home feed. */
 export function BlogsSection({ blogs, loading, onCompose, onSelect, onSeeAll }) {
@@ -48,6 +49,8 @@ export function BlogsSection({ blogs, loading, onCompose, onSelect, onSeeAll }) 
 
 /** Full-screen list of every published story, opened from "See all". */
 export function BlogsAllOverlay({ blogs, onSelect, onClose }) {
+  useBackLayer(true, onClose)
+
   return (
     <div className="edit-overlay">
       <header className="edit-header">
@@ -176,6 +179,7 @@ export function BlogDetailOverlay({
   const now = useNow()
   const [busy, setBusy] = useState(false)
   const canDelete = currentUser && (currentUser.id === blog.author.id || currentUser.role === 'admin')
+  useBackLayer(true, onClose)
 
   async function handleDelete() {
     setBusy(true)
@@ -269,6 +273,7 @@ export function BlogComposer({ onClose, onPosted }) {
   const [submitting, setSubmitting] = useState(false)
   const previewUrl = useMemo(() => (file ? URL.createObjectURL(file) : null), [file])
   useEffect(() => () => previewUrl && URL.revokeObjectURL(previewUrl), [previewUrl])
+  useBackLayer(true, onClose)
 
   function pickFile(e) {
     const picked = e.target.files?.[0]

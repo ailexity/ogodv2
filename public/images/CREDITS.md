@@ -4,7 +4,7 @@ All photos are from [Wikimedia Commons](https://commons.wikimedia.org), resized 
 
 | File | Source | Author | Licence |
 | --- | --- | --- | --- |
-| `auth-hero.jpg` | [Triund_(22356802630).jpg](https://commons.wikimedia.org/wiki/File:Triund_(22356802630).jpg) | Ashish Gupta from Noida, India | CC BY 2.0 |
+| `auth-hero.jpg` | [Pinterest pin](https://i.pinimg.com/736x/5a/2d/a7/5a2da7b9581d37371fdab5b5d246b746.jpg) (Mount Fuji and Chureito Pagoda) | Unknown — original photographer not identified | **Unverified** — confirm the rights before production |
 | `stories/jaisalmer.jpg` | [Camels at Sam sand dunes, Jaisalmer (44753465845).jpg](https://commons.wikimedia.org/wiki/File:Camels_at_Sam_sand_dunes,_Jaisalmer_(44753465845).jpg) | Dinesh Valke from Thane, India | CC BY-SA 2.0 |
 | `stories/kerala.jpg` | [Sunset at Alleppey backwaters.3.jpg](https://commons.wikimedia.org/wiki/File:Sunset_at_Alleppey_backwaters.3.jpg) | Sravanbaddi | CC BY-SA 4.0 |
 | `stories/palolem.jpg` | [Palolem Beach sunset - Goa (46052828755).jpg](https://commons.wikimedia.org/wiki/File:Palolem_Beach_sunset_-_Goa_(46052828755).jpg) | Maciej Kraus | CC BY 2.0 |

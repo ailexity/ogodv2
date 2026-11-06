@@ -1,7 +1,7 @@
 # OGod
 hello people
 
-A guided-travel marketplace. Travelers sign up, browse trips and book seats; guides get verified by an admin, publish trips and manage applicants; admins run the platform from a separate console.
+A guided-travel marketplace. Travelers sign up, browse trips and book seats or join free ones; anyone can post a trip after giving a few guide details, with no approval step; admins run the platform from a separate console.
 
 - **Frontend** — React 18 + Vite, no router (views are driven by state in `src/App.jsx`), plain CSS in `src/index.css`.
 - **Backend** — Express 5 on Node, SQLite via `better-sqlite3`, JWT auth, `multer` for file uploads.
@@ -30,6 +30,7 @@ src/
   components/           Traveler + guide UI (Home, TripForm, BookTrip, Blogs, …)
   components/admin/     Admin console (overview, people, blogs, settings)
   data/                 Static option lists (categories, interests, facts)
+  hooks/useBackLayer.js Back button and Backspace key, for screens that are React state
 server/
   index.js              Express app, route mounting, error handler, listen()
   db.js                 SQLite connection, schema, in-code migrations, admin bootstrap
@@ -38,7 +39,7 @@ server/
   settings.js           Admin-editable platform settings (fees, feature switches)
   routes/               auth, guides, admin, trips, bookings, blogs
   data/                 SQLite database + generated JWT secret   (gitignored)
-  uploads/              Guide verification documents               (gitignored)
+  uploads/              Subscription receipts, older verification documents (gitignored)
   blog-media/           Blog photos and videos                     (gitignored)
   trip-media/           Trip cover photos uploaded by guides       (gitignored)
 ```
@@ -51,28 +52,32 @@ Every account is one of `traveler`, `guide` or `admin`. New sign-ups always star
 - Register, sign in, reset password, edit profile (age, phone, address, bio, interests, languages).
 - Browse and filter published trips, view trip detail with a day-by-day itinerary.
 - Book a seat for a party of travelers — only the lead traveler gives contact details. A live `/bookings/quote` call shows the exact price breakdown the server will charge.
+- Join a free trip ("just come along"): no payment and no approval, and the ticket arrives straight away.
 - Post travel stories (blogs) with a photo or video, and see everyone else's on the home feed.
-- Apply for guide verification: experience, languages, areas, licence details, sample itinerary and four documents (ID, selfie, licence, address proof).
+- Become a guide by giving their guide details: phone, languages and areas, plus experience and a bio if they like. There are no documents and no review.
 
-**Guide** (a traveler whose application was approved)
-- Create, edit, duplicate and delete trips: destination, category, cover image, duration, meeting point, group size, price, currency, difficulty, languages, inclusions/exclusions, highlights, dates, booking deadline and instant-book.
-- Move a trip through its lifecycle: `draft → published → booking_open → booking_closed → confirmed → ongoing → completed`, plus `archived` and `cancelled`.
-- Review booking requests — approve or decline with a note. Trips with instant-book on confirm bookings automatically; otherwise a booking lands as `pending`.
+**Guide** (anyone who has given their guide details)
+- Create, edit, duplicate and delete trips: destination, category, cover image, duration, meeting point, group size, price, currency, difficulty, languages, inclusions/exclusions, highlights, dates and booking deadline.
+- Post a trip as paid, or free with a price of 0. A paid trip can't go live without a UPI ID or bank details, because travellers pay the guide directly.
+- Move a trip through its lifecycle: `draft → published → booking_open → booking_closed → confirmed → ongoing → completed`, plus `archived` and `cancelled`. A free trip goes straight from `draft` to `booking_open`.
+- Review booking requests — approve or decline with a note. A paid booking lands as `pending` until the guide has checked the payment.
 
 **Admin**
 - Gets the moderation console instead of the traveler app.
-- Review, approve and reject guide applications, including viewing the uploaded documents.
-- Suspend and reinstate guides.
+- See every guide and the details they gave, and suspend or reinstate them. With no review before someone posts, suspension is the check on a guide.
+- Review subscription payments, and applications from before posting opened up. Approving an application adds the Verified badge; it has no effect on posting.
 - Manage people: search, edit, change role, reset password, disable/enable, delete. The last enabled admin is protected from being locked out.
 - Hide or unhide blog posts without touching the author's account.
-- Change platform settings — service fee rate, tax rate, and switches for guide applications and bookings. Every setting changes real behaviour.
+- Change platform settings — service fee rate, tax rate, and switches for new guides, the yearly guide subscription (off by default) and bookings. Every setting changes real behaviour.
 
 ## Data model
 
 `users`, `guide_applications`, `trips`, `trip_itinerary_days`, `bookings`, `booking_travelers`, `blogs`, `settings`.
 
-Two details worth knowing before you touch the schema:
+Details worth knowing before you touch the schema:
 
+- `users.guide_since` is what lets someone post trips. `users.guide_status` only drives the Verified badge and suspensions, so a new guide stays `none`.
+- A trip priced 0 is a free trip; there is no separate flag. Its bookings are `confirmed` immediately, with `payment_status` set to `not_required`.
 - New columns are added at boot by `ensureColumn()` in [server/db.js](server/db.js), so existing dev databases keep working across pulls.
 - `bookings` uses a **partial** unique index on `(trip_id, user_id) WHERE status != 'cancelled'` — one live booking per traveler per trip, while still allowing someone whose booking was declined to apply again. `dropLegacyBookingConstraint()` rebuilds the table for databases created before that rule existed.
 
@@ -83,13 +88,13 @@ All routes are under `/api`. `GET /api/health` returns `{ ok: true }`.
 | Prefix          | Auth              | What it covers                                                                 |
 | --------------- | ----------------- | ------------------------------------------------------------------------------ |
 | `/api/auth`     | mixed             | register, login, reset-password, `GET/PATCH /me`, `POST /me/tour` (first-run tour seen) |
-| `/api/guides`   | signed in         | submit a verification application (multipart), read your own application       |
+| `/api/guides`   | signed in         | save your guide details, yearly subscription info and renewal                  |
 | `/api/trips`    | mixed             | list/filter/read trips (public), create/update/status/duplicate/delete (guide) |
 | `/api/bookings` | signed in         | quote, create, my bookings, trip bookings, requests, approve, decline          |
 | `/api/blogs`    | mixed             | list/read (public), create (multipart), delete own, serve media                |
 | `/api/admin`    | admin only        | applications, guides, users, blogs, stats, settings, document downloads        |
 
-Auth is a bearer JWT (7-day TTL) stored in `localStorage` under `ogod_token`. Passwords are scrypt-hashed. Uploads are re-named to random hex plus an extension derived from the vetted MIME type, so a client-supplied filename can never escape the upload directory. Limits: **5 MB × 4 files** for verification documents (JPG/PNG/WEBP/PDF), **25 MB × 1 file** for blog media (JPG/PNG/WEBP/MP4/WEBM/MOV).
+Auth is a bearer JWT (7-day TTL) stored in `localStorage` under `ogod_token`. Passwords are scrypt-hashed. Uploads are re-named to random hex plus an extension derived from the vetted MIME type, so a client-supplied filename can never escape the upload directory. Limits: **5 MB × 1 file** for subscription receipts (JPG/PNG/WEBP/PDF), **25 MB × 1 file** for blog media (JPG/PNG/WEBP/MP4/WEBM/MOV).
 
 ## Configuration
 
@@ -136,7 +141,7 @@ Change this password after first login, or set `OGOD_ADMIN_EMAIL` / `OGOD_ADMIN_
 
 ### Traveler / Guide demo accounts
 
-There are none by default — every non-admin account is created by signing up at `/api/auth/register` (all new sign-ups start as `traveler`). To test the guide flow: register a normal account, then apply for guide verification and approve the application from the admin account above.
+There are none by default — every non-admin account is created by signing up at `/api/auth/register` (all new sign-ups start as `traveler`). To test the guide flow: register a normal account, tap the **+** button, choose **Post a trip** or **Free trip**, and fill in the guide details it asks for.
 
 ## Deployment
 
@@ -171,7 +176,7 @@ Read these first.
 Four directories hold every piece of state, and none are in git:
 
 - `server/data/` — the SQLite database (`ogod.db`, `.db-wal`, `.db-shm`) and the generated JWT secret
-- `server/uploads/` — guide verification documents
+- `server/uploads/` — subscription receipts and older guide verification documents
 - `server/blog-media/` — blog photos and videos
 - `server/trip-media/` — trip cover photos (up to 10 MB each)
 
@@ -188,7 +193,7 @@ Disk sizing, from actual measured sizes:
 | Built frontend (`dist/`) | ~305 KB |
 | `node_modules` | 74 MB as installed here (including dev dependencies), of which `better-sqlite3` alone is 27 MB |
 | Database, current dev data | under 1 MB — it grows slowly, since rows are text |
-| Guide verification documents | up to **20 MB per application** (4 files × 5 MB cap) |
+| Subscription receipts | up to **5 MB each** |
 | Blog media | up to **25 MB per post** (1 file × 25 MB cap) |
 
 Media is what actually consumes the disk. A rough budget: `20 GB ≈ 800 blog posts at full size`, and in practice far more, since most uploads are photos rather than 25 MB videos. Nothing prunes or transcodes uploads, and deleting a blog row does not delete its file — plan to monitor free space.

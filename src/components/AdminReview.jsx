@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, getToken } from '../api/client.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 import { CheckIcon, CloseIcon, ShieldIcon } from './icons.jsx'
 
 const FILTERS = [
@@ -8,7 +9,11 @@ const FILTERS = [
   { key: 'rejected', label: 'Rejected' },
 ]
 
-/** Doc §4 step 3: the admin queue for reviewing guide verification applications. */
+/**
+ * Everyone posting trips, with the details they gave and a way to suspend them,
+ * which is the check now that no one is reviewed before they post. Below that is
+ * the queue for subscription payments and applications from before posting opened up.
+ */
 export default function AdminReview() {
   const [filter, setFilter] = useState('pending')
   const [applications, setApplications] = useState([])
@@ -51,7 +56,54 @@ export default function AdminReview() {
   return (
     <div className="admin-view">
       <section>
-        <h2 className="section-title">Guide verification queue</h2>
+        <h2 className="section-title">Tour guides</h2>
+        {guides.length === 0 && <p className="console-empty">No guides yet.</p>}
+        <div className="admin-list">
+          {guides.map((guide) => (
+            <div key={guide.id} className="admin-row admin-row-static">
+              <div>
+                <p className="admin-row-name">
+                  {guide.name}
+                  {guide.certified && <span className="certified-tag">Certified</span>}
+                </p>
+                <p className="admin-row-meta">
+                  {[guide.email, guide.phone].filter(Boolean).join(' · ')}
+                </p>
+                <p className="admin-row-meta">
+                  {[
+                    guide.guideAreas.join(', '),
+                    guide.languages.join(', '),
+                    guide.guideExperience > 0 && `${guide.guideExperience} yrs`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </div>
+              <div className="admin-row-actions">
+                {guide.guideStatus !== 'none' && (
+                  <span className={`status-pill status-${guide.guideStatus}`}>{guide.guideStatus}</span>
+                )}
+                {(guide.isGuide || ['verified', 'suspended'].includes(guide.guideStatus)) && (
+                  <button
+                    type="button"
+                    className="ghost-btn"
+                    onClick={() => handleGuideAction(guide)}
+                  >
+                    {guide.guideStatus === 'suspended' ? 'Reinstate' : 'Suspend'}
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="section-title">Applications and subscription payments</h2>
+        <p className="field-hint">
+          Guides no longer apply to post trips. Approving an older application here only adds the
+          Verified badge.
+        </p>
         <div className="scroll-row">
           {FILTERS.map((option) => (
             <button
@@ -98,36 +150,6 @@ export default function AdminReview() {
         </div>
       </section>
 
-      <section>
-        <h2 className="section-title">Verified guides</h2>
-        {guides.length === 0 && <p className="console-empty">No guides yet.</p>}
-        <div className="admin-list">
-          {guides.map((guide) => (
-            <div key={guide.id} className="admin-row admin-row-static">
-              <div>
-                <p className="admin-row-name">
-                  {guide.name}
-                  {guide.certified && <span className="certified-tag">Certified</span>}
-                </p>
-                <p className="admin-row-meta">{guide.email}</p>
-              </div>
-              <div className="admin-row-actions">
-                <span className={`status-pill status-${guide.guideStatus}`}>{guide.guideStatus}</span>
-                {['verified', 'suspended'].includes(guide.guideStatus) && (
-                  <button
-                    type="button"
-                    className="ghost-btn"
-                    onClick={() => handleGuideAction(guide)}
-                  >
-                    {guide.guideStatus === 'suspended' ? 'Reinstate' : 'Suspend'}
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {selected && (
         <ApplicationDetail
           application={selected}
@@ -147,6 +169,7 @@ function ApplicationDetail({ application, onClose, onReviewed }) {
   const [certified, setCertified] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  useBackLayer(true, onClose)
 
   const documents = Object.entries(application.documents).filter(([, value]) => value)
 

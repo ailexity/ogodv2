@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../api/client.js'
 import { randomFact } from '../data/facts.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 import { TripCover } from './TripDetail.jsx'
 import { ArrowUpIcon, ChevronUpIcon, CompassIcon, StarIcon, VerifiedIcon } from './icons.jsx'
 
@@ -17,13 +18,10 @@ export function ordinalSuffix(day) {
 }
 
 function guideNote(user) {
-  if (user.guideStatus === 'verified') {
-    return user.certified ? 'You are a certified guide' : 'You can post trips'
-  }
-  if (user.guideStatus === 'pending') return 'Your verification is under review'
-  if (user.guideStatus === 'rejected') return 'Fix your application and reapply'
   if (user.guideStatus === 'suspended') return 'Your guide account is suspended'
-  return 'Become a verified guide'
+  if (user.canPostTrips) return user.certified ? 'You are a certified guide' : 'You can post trips'
+  if (user.isGuide) return 'Renew your subscription to post trips'
+  return 'Post your first trip'
 }
 
 export default function Welcome({ user, onDismiss }) {
@@ -57,6 +55,7 @@ export default function Welcome({ user, onDismiss }) {
       return true
     })
   }, [onDismiss])
+  useBackLayer(true, dismiss)
 
   useEffect(() => {
     function onKeyDown(e) {

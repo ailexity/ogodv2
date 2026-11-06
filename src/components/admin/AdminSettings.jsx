@@ -39,6 +39,11 @@ export default function AdminSettings({ user }) {
   }
 
   async function save() {
+    const blank = Object.entries(definitions).find(
+      ([key, definition]) => ['rate', 'amount'].includes(definition.type) && values[key] === '',
+    )
+    if (blank) return setError(`${blank[1].label} needs a value`)
+
     setSaving(true)
     setError('')
     try {
@@ -96,22 +101,23 @@ export default function AdminSettings({ user }) {
                   <span className="rate-suffix">₹</span>
                   <input
                     type="number"
-                    value={values[key] ?? 0}
+                    value={values[key] ?? ''}
                     min={definition.min}
                     max={definition.max}
                     step="1"
-                    onChange={(e) => update(key, Number(e.target.value))}
+                    onChange={(e) => update(key, e.target.value)}
                   />
                 </div>
               ) : (
                 <div className="rate-input">
                   <input
                     type="number"
-                    value={Math.round((values[key] ?? 0) * 1000) / 10}
+                    value={values[key] === '' ? '' : Math.round((values[key] ?? 0) * 1000) / 10}
                     min={definition.min * 100}
                     max={definition.max * 100}
                     step="0.1"
-                    onChange={(e) => update(key, Number(e.target.value) / 100)}
+                    // Left empty rather than forced to 0, so Backspace can clear the field.
+                    onChange={(e) => update(key, e.target.value === '' ? '' : Number(e.target.value) / 100)}
                   />
                   <span className="rate-suffix">%</span>
                 </div>

@@ -30,6 +30,7 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
   }, [tripId])
 
   const seatsLeft = trip ? (trip.seatsLeft ?? trip.maxGroupSize) : 1
+  const free = Boolean(trip) && !trip.pricePerPerson
   const count = party?.length ?? Math.max(1, Math.min(initialTravelers, seatsLeft))
   const { quote, error: quoteError } = useQuote(tripId, count)
 
@@ -96,7 +97,7 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
       <a href={`#/trips/${trip.id}`} className="web-back">
         <ChevronLeftIcon /> Back to trip
       </a>
-      <h1 className="web-page-title">Request to book</h1>
+      <h1 className="web-page-title">{free ? 'Come along' : 'Request to book'}</h1>
 
       <div className="web-checkout">
         <div>
@@ -210,7 +211,9 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
               <button className="web-btn web-btn-lg" type="submit" disabled={submitting || !quote}>
                 {submitting
                   ? 'Booking…'
-                  : `Send request${quote ? ` · ${formatMoney(quote.total, quote.currency)}` : ''}`}
+                  : free
+                    ? 'Count me in'
+                    : `Send request${quote ? ` · ${formatMoney(quote.total, quote.currency)}` : ''}`}
               </button>
             </form>
           ) : null}
@@ -228,10 +231,11 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
               .filter(Boolean)
               .join(' · ')}
           </p>
-          <PriceSummary trip={trip} travelers={count} quote={quote} error={quoteError} />
+          {!free && <PriceSummary trip={trip} travelers={count} quote={quote} error={quoteError} />}
           <p className="web-faint">
-            Your seats are held while you pay the guide and they check the payment. Your ticket
-            arrives in Messages once they confirm.
+            {free
+              ? 'This trip is free, so there’s nothing to pay. You’re in as soon as you send this, and your ticket arrives in Messages.'
+              : 'Your seats are held while you pay the guide and they check the payment. Your ticket arrives in Messages once they confirm.'}
           </p>
         </aside>
       </div>
@@ -240,18 +244,26 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
 }
 
 function Confirmation({ trip, booking, onOpenChat }) {
+  const free = !trip.pricePerPerson
   return (
     <div className="web-container web-section">
       <div className="web-panel web-confirm">
         <span className="web-confirm-icon">
           <CheckIcon />
         </span>
-        <h1>Request sent</h1>
-        <p>
-          {trip.guide.name} has messaged you with payment details. Pay{' '}
-          {formatMoney(booking.totalPaid, trip.currency)}, then send a screenshot of the payment in
-          the chat. Your seats are held, and your ticket arrives once the guide confirms.
-        </p>
+        <h1>{free ? 'You’re in' : 'Request sent'}</h1>
+        {free ? (
+          <p>
+            {trip.guide.name} knows you&apos;re coming along. There&apos;s nothing to pay, and your
+            ticket is in your chat with them.
+          </p>
+        ) : (
+          <p>
+            {trip.guide.name} has messaged you with payment details. Pay{' '}
+            {formatMoney(booking.totalPaid, trip.currency)}, then send a screenshot of the payment in
+            the chat. Your seats are held, and your ticket arrives once the guide confirms.
+          </p>
+        )}
         <div className="web-signin-actions">
           {onOpenChat && (
             <button type="button" className="web-btn web-btn-lg" onClick={onOpenChat}>

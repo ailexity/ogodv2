@@ -11,6 +11,7 @@ import WebSite from './components/web/WebSite.jsx'
 import { rememberReturnTo, takeReturnTo } from './components/web/route.js'
 import { ChevronLeftIcon } from './components/icons.jsx'
 import { useMediaQuery } from './hooks/useMediaQuery.js'
+import { BACK_LEVEL, useBackLayer, useBackNavigation } from './hooks/useBackLayer.js'
 import { api, getToken, setSessionExpiredHandler, setToken } from './api/client.js'
 
 /**
@@ -38,6 +39,8 @@ export default function App() {
   const [link] = useState(takeEmailLink)
   const [user, setUser] = useState(null)
   const [authView, setAuthView] = useState(link?.kind === 'reset' ? 'reset' : 'login')
+  // The sign-in screen someone arrived on; Back returns here before leaving sign-in.
+  const [authEntry, setAuthEntry] = useState(link?.kind === 'reset' ? 'reset' : 'login')
   const [pendingEmail, setPendingEmail] = useState({ address: '', reason: 'registered' })
   const [notice, setNotice] = useState(null)
   const [booting, setBooting] = useState(true)
@@ -48,6 +51,8 @@ export default function App() {
   // sign-in screens or using the full app (profile, guide tools).
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [siteMode, setSiteMode] = useState(!link)
+  // The website's "Post a trip" button opens the app with the create sheet up.
+  const [createOnOpen, setCreateOnOpen] = useState(false)
 
   const handleAuthenticated = useCallback(({ token, user: authed }, { remember = false } = {}) => {
     setToken(token, { remember })
@@ -90,28 +95,13 @@ export default function App() {
       setUser(null)
       setShowWelcome(false)
       setAuthView('login')
+      setAuthEntry('login')
       setSiteMode(false)
       setNotice({ tone: 'error', text: message ?? 'Your session has ended, please sign in again' })
     })
   }, [])
 
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key !== 'Backspace') return
-      const el = e.target
-      const isEditable =
-        el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable
-      if (!isEditable) {
-        // Without this, pressing Backspace while focus sits on a button (not
-        // a text field) triggers the browser's default "navigate back"
-        // behavior, which can knock the user out of the app entirely.
-        e.preventDefault()
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  useBackNavigation()
 
   const handleLogout = useCallback(() => {
     setToken(null)
@@ -126,6 +116,7 @@ export default function App() {
     rememberReturnTo(window.location.hash)
     setNotice(null)
     setAuthView(view)
+    setAuthEntry(view)
     setSiteMode(false)
   }, [])
 
@@ -133,8 +124,15 @@ export default function App() {
     takeReturnTo()
     setNotice(null)
     setAuthView('login')
+    setAuthEntry('login')
     setSiteMode(true)
   }, [])
+
+  const onAuthScreens = !user && !siteMode
+  useBackLayer(onAuthScreens, backToSite, BACK_LEVEL.screen)
+  useBackLayer(onAuthScreens && authView !== authEntry, () => setAuthView(authEntry), BACK_LEVEL.screen)
+  // On a desktop, the app shell is opened from the website and goes back to it.
+  useBackLayer(isDesktop && Boolean(user) && !siteMode, () => setSiteMode(true), BACK_LEVEL.screen)
 
   const showCheckEmail = useCallback((address, reason) => {
     setPendingEmail({ address, reason })
@@ -167,7 +165,10 @@ export default function App() {
       <WebSite
         user={user}
         onSignIn={requireAuth}
-        onOpenApp={() => setSiteMode(false)}
+        onOpenApp={(intent) => {
+          setCreateOnOpen(intent === 'create')
+          setSiteMode(false)
+        }}
         onLogout={handleLogout}
       />
     )
@@ -176,12 +177,15 @@ export default function App() {
   if (user && authView !== 'reset') {
     return (
       <>
+        {/* Keyed so signing out starts afresh: the profile tab can't render without a user. */}
         <Home
+          key={user.id}
           user={user}
           onUserChange={setUser}
           onLogout={handleLogout}
           onSignIn={requireAuth}
           tourReady={!showWelcome || isDesktop}
+          startCreating={createOnOpen}
         />
         {showWelcome && !isDesktop && <Welcome user={user} onDismiss={() => setShowWelcome(false)} />}
         {isDesktop && (
@@ -196,7 +200,7 @@ export default function App() {
   // Phones: signed-out visitors browse first and sign in when they book, vote,
   // message or post.
   if (!user && siteMode && authView !== 'reset') {
-    return <Home user={null} onUserChange={setUser} onLogout={handleLogout} onSignIn={requireAuth} />
+    return <Home key="visitor" user={null} onUserChange={setUser} onLogout={handleLogout} onSignIn={requireAuth} />
   }
 
   return (
@@ -245,6 +249,8 @@ export default function App() {
             setUser(null)
             setNotice({ tone: 'success', text: 'Password updated. Sign in with your new password.' })
             setAuthView('login')
+            // The link is spent, so Back mustn't return to it.
+            setAuthEntry('login')
           }}
           onRequestNewLink={() => setAuthView('forgot')}
         />

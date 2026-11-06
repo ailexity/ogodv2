@@ -10,8 +10,8 @@ function upsertGuide() {
     const result = db
       .prepare(
         `INSERT INTO users (email, password_hash, role, name, guide_status, certified, bio, languages, interests,
-                          email_verified, subscription_until, payout_upi, phone)
-         VALUES (?, ?, 'guide', ?, 'verified', 1, ?, ?, ?, 1, date('now', '+1 year'), 'arjun.mehta@okaxis', '+91 98100 12345')`,
+                          email_verified, subscription_until, payout_upi, phone, guide_since)
+         VALUES (?, ?, 'guide', ?, 'verified', 1, ?, ?, ?, 1, date('now', '+1 year'), 'arjun.mehta@okaxis', '+91 98100 12345', datetime('now'))`,
       )
       .run(
         'guide@gmail.com',
@@ -28,6 +28,7 @@ function upsertGuide() {
       `UPDATE users SET password_hash = ?, role = 'guide', guide_status = 'verified', certified = 1,
               email_verified = 1, token_version = token_version + 1,
               subscription_until = MAX(COALESCE(subscription_until, ''), date('now', '+1 year')),
+              guide_since = COALESCE(guide_since, datetime('now')),
               payout_upi = COALESCE(payout_upi, 'arjun.mehta@okaxis')
         WHERE id = ?`,
     ).run(hashPassword('Guide@1234'), user.id)

@@ -24,7 +24,7 @@ export default function AdminOverview({ onJump }) {
   return (
     <div className="console-sections">
       {stats.verification.awaitingReview > 0 && (
-        <button type="button" className="console-alert" onClick={() => onJump('verification')}>
+        <button type="button" className="console-alert" onClick={() => onJump('guides')}>
           <span>
             <strong>{stats.verification.awaitingReview}</strong> guide{' '}
             {stats.verification.awaitingReview === 1 ? 'application is' : 'applications are'} waiting
@@ -63,7 +63,7 @@ export default function AdminOverview({ onJump }) {
       </section>
 
       <section>
-        <h2 className="console-section-title">Verification</h2>
+        <h2 className="console-section-title">Guide badges and reviews</h2>
         <div className="stat-grid">
           <StatCard label="Verified" value={stats.verification.verified} emphasis />
           <StatCard label="Awaiting review" value={stats.verification.awaitingReview} />

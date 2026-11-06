@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client.js'
 import { TRIP_STATUS, categoryImage } from '../data/categories.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 import { ChevronLeftIcon, HeartIcon, MessageIcon, StarIcon, VerifiedIcon } from './icons.jsx'
 import {
   beforeTripStarts,
@@ -67,6 +68,11 @@ export function formatMoney(amount, currency = 'USD') {
     maximumFractionDigits: 2,
   })
   return currency === 'USD' ? `$${value}` : `${currency} ${value}`
+}
+
+/** For prices and booking totals, where nothing to pay means a free trip. */
+export function moneyOrFree(amount, currency) {
+  return Number(amount) > 0 ? formatMoney(amount, currency) : 'Free'
 }
 
 export function formatPrice(trip) {
@@ -217,6 +223,7 @@ export default function TripDetail({
   const bodyRef = useRef(null)
   const heroRef = useRef(null)
   useHeroZoom(bodyRef, heroRef)
+  useBackLayer(true, onClose)
   const [trip, setTrip] = useState(summary)
   const [error, setError] = useState('')
 
@@ -275,6 +282,7 @@ export default function TripDetail({
 
         <div className="trip-detail-tags">
           <span className="chip chip-static">{trip.category}</span>
+          {!trip.pricePerPerson && <span className="chip chip-static">Free · just come along</span>}
           {showStatus && <StatusPill status={trip.status} />}
         </div>
 
@@ -306,10 +314,11 @@ export default function TripDetail({
             <p className="trip-detail-author-label">
               {trip.guide.verified ? 'Verified guide' : 'Guide'}
               {trip.guide.certified && ' · Certified'}
+              {trip.guide.yearsExperience > 0 && ` · ${trip.guide.yearsExperience} yrs experience`}
               {trip.reviewCount > 0 && ` · ${trip.reviewCount} reviews`}
             </p>
           </div>
-          {onMessageGuide && trip.guide.id !== user?.id && trip.guide.verified && (
+          {onMessageGuide && trip.guide.id !== user?.id && (
             <button
               type="button"
               className="ghost-btn trip-detail-message"
@@ -322,6 +331,9 @@ export default function TripDetail({
         </div>
 
         {trip.guide.bio && <p className="guide-bio">{trip.guide.bio}</p>}
+        {trip.guide.areas?.length > 0 && (
+          <p className="field-hint guide-areas">Runs trips in {trip.guide.areas.join(', ')}</p>
+        )}
 
         {trip.description && (
           <div className="trip-detail-description">
@@ -428,11 +440,13 @@ function ApplyBar({ trip, user, booking, now, onApply, onCancelBooking }) {
 
   const isOwnTrip = Boolean(user) && trip.guide?.id === user.id
   const soldOut = trip.seatsLeft === 0
+  const free = !trip.pricePerPerson
   // Checked against the clock, so the button turns off when the deadline passes.
   const open = canBookNow(trip, now)
+  const confirmedLabel = free ? 'Going' : 'Booked'
 
   // Signed-out visitors are sent to sign in when they tap it.
-  let label = user ? 'Apply' : 'Book'
+  let label = free ? 'Come along' : user ? 'Apply' : 'Book'
   let disabled = false
   let action = () => onApply(trip)
   let danger = false
@@ -444,14 +458,14 @@ function ApplyBar({ trip, user, booking, now, onApply, onCancelBooking }) {
     note = `${trip.bookedSeats ?? 0} of ${trip.maxGroupSize} booked`
   } else if (booking) {
     const travellers = `${booking.travelers} ${booking.travelers === 1 ? 'traveller' : 'travellers'}`
-    note = `${booking.status === 'pending' ? 'Requested' : 'Booked'} · ${travellers}`
+    note = `${booking.status === 'pending' ? 'Requested' : confirmedLabel} · ${travellers}`
     if (onCancelBooking && beforeTripStarts(trip, now)) {
       // The bar is narrow; the note beside it already says requested or booked.
       label = 'Cancel'
       action = () => onCancelBooking(booking)
       danger = true
     } else {
-      label = booking.status === 'pending' ? 'Requested' : 'Booked'
+      label = booking.status === 'pending' ? 'Requested' : confirmedLabel
       disabled = true
     }
   } else if (soldOut) {
@@ -467,7 +481,7 @@ function ApplyBar({ trip, user, booking, now, onApply, onCancelBooking }) {
   return (
     <div className="apply-bar">
       <div className="apply-price">
-        <span className="apply-amount">{formatMoney(trip.pricePerPerson, trip.currency)}</span>
+        <span className="apply-amount">{moneyOrFree(trip.pricePerPerson, trip.currency)}</span>
         <span className="apply-note">{note}</span>
       </div>
       <button

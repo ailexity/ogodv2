@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 
 /** Room (px) left around a highlighted element. */
 const PAD = 6
@@ -15,7 +16,7 @@ const GUTTER = 16
 export const TOUR_STEPS = [
   {
     title: 'Welcome to OGod',
-    body: 'Trips run by verified local guides, and stories from the travellers who went. Here’s a quick look around — it takes under a minute.',
+    body: 'Trips run by local guides, and stories from the travellers who went. Here’s a quick look around — it takes under a minute.',
   },
   {
     target: 'search',
@@ -46,10 +47,7 @@ export const TOUR_STEPS = [
     target: 'create',
     scroll: false,
     title: 'Create',
-    body: (user) =>
-      user.canPostTrips
-        ? 'Post a new trip, share a travel story, or jump into your messages.'
-        : 'Share a travel story from your own trip, or jump into your messages.',
+    body: 'Share a travel story, post a trip for travellers to book, or post a free trip people can just come along on.',
   },
   {
     target: 'nav-trips',
@@ -73,7 +71,7 @@ export const TOUR_STEPS = [
     body: (user) =>
       user.canPostTrips
         ? 'Edit your details, add the payment details travellers pay you with, and change settings. Replay this tour from Settings anytime.'
-        : 'Edit your details and settings, or apply to become a verified guide and post trips of your own. Replay this tour from Settings anytime.',
+        : 'Edit your details and settings, or add your guide details to post trips of your own. Replay this tour from Settings anytime.',
   },
 ]
 
@@ -130,6 +128,7 @@ export default function AppTour({ user, steps = TOUR_STEPS, onClose }) {
   const [card, setCard] = useState({ width: 320, height: 200 })
   const cardRef = useRef(null)
   const primaryRef = useRef(null)
+  useBackLayer(true, onClose)
 
   const step = steps[index]
   const isFirst = index === 0

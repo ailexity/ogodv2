@@ -5,6 +5,8 @@ import {
   LANGUAGE_OPTIONS,
   TRIP_CATEGORIES,
 } from '../data/categories.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
+import { PayoutDetails } from './GuideDetails.jsx'
 import { CloseIcon, ImageIcon, PlusIcon } from './icons.jsx'
 import { TripCover } from './TripDetail.jsx'
 import {
@@ -28,7 +30,7 @@ function initialState(trip) {
     meetingPoint: trip?.meetingPoint ?? '',
     minGroupSize: trip?.minGroupSize ?? 1,
     maxGroupSize: trip?.maxGroupSize ?? 8,
-    pricePerPerson: trip?.pricePerPerson ?? '',
+    pricePerPerson: trip?.pricePerPerson || '',
     currency: trip?.currency ?? 'INR',
     difficulty: trip?.difficulty ?? '',
     startDate: trip?.startDate ?? '',
@@ -47,10 +49,17 @@ function toLines(value) {
     .filter(Boolean)
 }
 
-/** Doc §5 step 1: the full trip listing a verified guide creates. */
-export default function TripForm({ trip, onClose, onSaved }) {
+/**
+ * Doc §5 step 1: the full trip listing a guide creates. `free` starts a new trip
+ * as "just come along": no price and no payment, which is what a price of 0 means.
+ */
+export default function TripForm({ trip, free: startFree = false, user, onUserChange, onClose, onSaved }) {
   const editing = Boolean(trip)
   const [form, setForm] = useState(() => initialState(trip))
+  const [free, setFree] = useState(trip ? !trip.pricePerPerson : startFree)
+  const [addingPayout, setAddingPayout] = useState(false)
+  const hasPayout = Boolean(user.payoutUpi || user.payoutBank)
+  useBackLayer(true, onClose)
   const [category, setCategory] = useState(trip?.category ?? null)
   const [languages, setLanguages] = useState(trip?.languages ?? [])
   const [itinerary, setItinerary] = useState(
@@ -125,6 +134,16 @@ export default function TripForm({ trip, onClose, onSaved }) {
     if (Number(form.maxGroupSize) < Number(form.minGroupSize)) {
       return setError('Maximum group size must be at least the minimum')
     }
+    if (!free) {
+      if (!(Number(form.pricePerPerson) > 0)) {
+        return setError('Enter the price per person, or make this a free trip')
+      }
+      const goingLive = editing ? trip.status !== 'draft' : status === 'published'
+      if (goingLive && !hasPayout) {
+        setAddingPayout(true)
+        return setError('Add your payment details first, so travellers can pay you')
+      }
+    }
 
     const payload = {
       title: form.title.trim(),
@@ -135,7 +154,7 @@ export default function TripForm({ trip, onClose, onSaved }) {
       meetingPoint: form.meetingPoint.trim(),
       minGroupSize: Number(form.minGroupSize),
       maxGroupSize: Number(form.maxGroupSize),
-      pricePerPerson: Number(form.pricePerPerson) || 0,
+      pricePerPerson: free ? 0 : Number(form.pricePerPerson),
       currency: form.currency.trim() || 'USD',
       difficulty: form.difficulty || null,
       languages,
@@ -167,16 +186,18 @@ export default function TripForm({ trip, onClose, onSaved }) {
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
+      if (err.code === 'payout_required') setAddingPayout(true)
     }
   }
 
   return (
+    <>
     <div className="edit-overlay">
       <header className="edit-header">
         <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
           <CloseIcon />
         </button>
-        <h2 className="edit-header-title">{editing ? 'Edit trip' : 'New trip'}</h2>
+        <h2 className="edit-header-title">{editing ? 'Edit trip' : free ? 'New free trip' : 'New trip'}</h2>
         <button
           type="button"
           className="edit-save-btn"
@@ -189,6 +210,34 @@ export default function TripForm({ trip, onClose, onSaved }) {
 
       <div className="edit-body">
         <form className="form" onSubmit={(e) => e.preventDefault()}>
+          <div className="field">
+            <span className="field-label">Trip type</span>
+            <div className="chip-group">
+              {[
+                { value: false, label: 'Paid trip' },
+                { value: true, label: 'Free — just come along' },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  className={`chip${free === option.value ? ' chip-active' : ''}`}
+                  aria-pressed={free === option.value}
+                  onClick={() => {
+                    setFree(option.value)
+                    setError('')
+                  }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <span className="field-hint">
+              {free
+                ? 'No fee and no payment. People who join are in straight away, and you can see who’s coming under Applicants.'
+                : 'Travellers pay you directly, and you confirm their seats once you’ve checked the payment.'}
+            </span>
+          </div>
+
           <div className="field">
             <span className="field-label">
               Cover photo <span className="upload-optional">Optional</span>
@@ -359,31 +408,42 @@ export default function TripForm({ trip, onClose, onSaved }) {
               </label>
             </div>
 
-            <div className="field-row">
-              <label className="field">
-                <span className="field-label">Price per person</span>
-                <input
-                  type="number"
-                  name="pricePerPerson"
-                  value={form.pricePerPerson}
-                  onChange={handleChange}
-                  min="0"
-                  step="1"
-                  placeholder="e.g. 3499"
-                />
-              </label>
+            {!free && (
+              <div className="field-row">
+                <label className="field">
+                  <span className="field-label">Price per person</span>
+                  <input
+                    type="number"
+                    name="pricePerPerson"
+                    value={form.pricePerPerson}
+                    onChange={handleChange}
+                    min="1"
+                    step="1"
+                    placeholder="e.g. 3499"
+                  />
+                </label>
 
-              <label className="field">
-                <span className="field-label">Currency</span>
-                <select name="currency" value={form.currency} onChange={handleChange}>
-                  {CURRENCIES.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+                <label className="field">
+                  <span className="field-label">Currency</span>
+                  <select name="currency" value={form.currency} onChange={handleChange}>
+                    {CURRENCIES.map((code) => (
+                      <option key={code} value={code}>
+                        {code}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
+
+            {!free && !hasPayout && (
+              <div className="notice trip-payout-notice">
+                <p>Travellers pay you directly, so add your UPI ID or bank details before publishing.</p>
+                <button type="button" className="ghost-btn" onClick={() => setAddingPayout(true)}>
+                  Add payment details
+                </button>
+              </div>
+            )}
 
             <div className="field-row">
               <label className="field">
@@ -539,5 +599,18 @@ export default function TripForm({ trip, onClose, onSaved }) {
         </form>
       </div>
     </div>
+
+    {addingPayout && (
+      <PayoutDetails
+        user={user}
+        onClose={() => setAddingPayout(false)}
+        onSaved={(updated) => {
+          onUserChange(updated)
+          setAddingPayout(false)
+          setError('')
+        }}
+      />
+    )}
+    </>
   )
 }

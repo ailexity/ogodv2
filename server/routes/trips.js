@@ -3,7 +3,7 @@ import path from 'node:path'
 import { Router } from 'express'
 import multer from 'multer'
 import { db, TRIP_MEDIA_DIR } from '../db.js'
-import { authenticate, optionalAuth, requireVerifiedGuide, subscriptionActive } from '../auth.js'
+import { authenticate, canPostTrips, optionalAuth, requireGuide } from '../auth.js'
 import { rateLimit } from '../rate-limit.js'
 
 const router = Router()
@@ -57,6 +57,7 @@ const DIFFICULTIES = ['easy', 'moderate', 'challenging', 'strenuous']
 export const TRIP_QUERY = `
   SELECT t.*, u.name AS guide_name, u.bio AS guide_bio,
          u.guide_status AS guide_status, u.certified AS guide_certified,
+         u.guide_areas AS guide_areas, u.guide_experience AS guide_experience,
          (SELECT COALESCE(SUM(b.travelers), 0)
             FROM bookings b
            WHERE b.trip_id = t.id AND b.status IN ('pending', 'confirmed', 'completed')
@@ -120,6 +121,8 @@ export function mapTrip(row, itinerary) {
       bio: row.guide_bio,
       verified: row.guide_status === 'verified',
       certified: Boolean(row.guide_certified),
+      areas: JSON.parse(row.guide_areas ?? '[]'),
+      yearsExperience: row.guide_experience,
     },
     itinerary: itinerary ?? undefined,
   }
@@ -226,6 +229,16 @@ function startDateProblem(startDate, previousStart = null) {
   return startDate <= new Date().toISOString().slice(0, 10) ? 'The start date must be in the future' : null
 }
 
+/** Travellers pay the guide directly, so a paid trip can't go live without somewhere to pay. */
+function payoutMissing(guide, price) {
+  return price > 0 && !guide?.payout_upi && !guide?.payout_bank
+}
+
+const PAYOUT_REQUIRED = {
+  error: 'Add your payment details first, so travellers can pay you',
+  code: 'payout_required',
+}
+
 function replaceItinerary(tripId, itinerary) {
   db.prepare('DELETE FROM trip_itinerary_days WHERE trip_id = ?').run(tripId)
   const insert = db.prepare(
@@ -293,7 +306,7 @@ router.get('/', optionalAuth, (req, res) => {
 
 /** A guide's own listings, across every status including drafts. */
 /** Stores a cover photo and returns its URL, which the trip form then saves as `coverImage`. */
-router.post('/cover', authenticate, requireVerifiedGuide, coverLimit, coverUpload.single('cover'), (req, res) => {
+router.post('/cover', authenticate, requireGuide, coverLimit, coverUpload.single('cover'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Choose a photo to upload' })
   res.status(201).json({ url: `/api/trips/media/${req.file.filename}` })
 })
@@ -329,16 +342,21 @@ router.get('/:id', optionalAuth, (req, res) => {
   res.json({ trip: mapTrip(row, loadItinerary(row.id)) })
 })
 
-/** Doc §5 step 1: only a verified guide can create a listing. */
-router.post('/', authenticate, requireVerifiedGuide, (req, res) => {
+/** Doc §5 step 1: anyone who has given their guide details can create a listing. */
+router.post('/', authenticate, requireGuide, (req, res) => {
   const parsed = validateTripInput(req.body)
   if (parsed.error) return res.status(400).json({ error: parsed.error })
 
   const pastStart = startDateProblem(parsed.values.start_date)
   if (pastStart) return res.status(400).json({ error: pastStart })
 
-  const status = req.body?.status === 'published' ? 'published' : 'draft'
   const values = parsed.values
+  const publishing = req.body?.status === 'published'
+  if (publishing && payoutMissing(req.user, values.price_per_person)) {
+    return res.status(409).json(PAYOUT_REQUIRED)
+  }
+  // There's nothing to collect on a free trip, so it opens as soon as it's published.
+  const status = !publishing ? 'draft' : values.price_per_person > 0 ? 'published' : 'booking_open'
 
   const tripId = db.transaction(() => {
     const result = db
@@ -363,7 +381,7 @@ router.post('/', authenticate, requireVerifiedGuide, (req, res) => {
 })
 
 /** Doc §5 step 9: guides edit their own future trips. */
-router.patch('/:id', authenticate, requireVerifiedGuide, (req, res) => {
+router.patch('/:id', authenticate, requireGuide, (req, res) => {
   const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(Number(req.params.id))
   if (!trip) return res.status(404).json({ error: 'Trip not found' })
   if (trip.guide_id !== req.user.id) return res.status(403).json({ error: 'This is not your trip' })
@@ -386,6 +404,16 @@ router.patch('/:id', authenticate, requireVerifiedGuide, (req, res) => {
     return res.status(409).json({
       error: `${booked} seats are already booked, so the group size can't go below that`,
     })
+  }
+  // People who joined free would suddenly owe money, and people waiting to pay
+  // would have nothing to pay.
+  if (booked > 0 && !trip.price_per_person !== !parsed.values.price_per_person) {
+    return res.status(409).json({
+      error: 'People have already booked this trip, so it can’t switch between free and paid',
+    })
+  }
+  if (trip.status !== 'draft' && payoutMissing(req.user, parsed.values.price_per_person)) {
+    return res.status(409).json(PAYOUT_REQUIRED)
   }
 
   db.transaction(() => {
@@ -426,24 +454,29 @@ router.post('/:id/status', authenticate, (req, res) => {
     })
   }
   // Checked against the trip's guide, not the caller: a suspended guide's trips
-  // must not go back on sale, and an admin may publish a verified guide's draft.
+  // must not go back on sale, and an admin may publish a guide's draft.
   if (['published', 'booking_open'].includes(next)) {
-    const owner = db
-      .prepare('SELECT guide_status, subscription_until FROM users WHERE id = ?')
-      .get(trip.guide_id)
-    if (owner?.guide_status !== 'verified') {
-      return res.status(403).json({ error: 'Only verified guides can publish or open bookings' })
+    const owner = db.prepare('SELECT * FROM users WHERE id = ?').get(trip.guide_id)
+    if (!canPostTrips(owner)) {
+      return res.status(403).json({
+        error:
+          owner?.guide_status === 'suspended'
+            ? 'A suspended guide can’t publish trips or open bookings'
+            : owner?.guide_since
+              ? 'The guide’s yearly subscription has expired'
+              : 'Add your guide details before publishing a trip',
+      })
     }
-    if (!subscriptionActive(owner)) {
-      return res.status(403).json({ error: 'The guide’s yearly subscription has expired' })
-    }
+    if (payoutMissing(owner, trip.price_per_person)) return res.status(409).json(PAYOUT_REQUIRED)
   }
 
+  // There's nothing to collect on a free trip, so it opens as soon as it's published.
+  const stored = next === 'published' && !trip.price_per_person ? 'booking_open' : next
   const reason = next === 'cancelled' ? String(req.body?.reason ?? '').trim() || null : null
   db.transaction(() => {
     db.prepare(
       "UPDATE trips SET status = ?, cancellation_reason = ?, updated_at = datetime('now') WHERE id = ?",
-    ).run(next, reason, trip.id)
+    ).run(stored, reason, trip.id)
 
     // Bookings follow the trip: cancelling releases everyone, and completing
     // turns confirmed seats into attended trips.
@@ -470,7 +503,7 @@ router.post('/:id/status', authenticate, (req, res) => {
 })
 
 /** Doc §5 step 9: duplicate a past trip to relist it. */
-router.post('/:id/duplicate', authenticate, requireVerifiedGuide, (req, res) => {
+router.post('/:id/duplicate', authenticate, requireGuide, (req, res) => {
   const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(Number(req.params.id))
   if (!trip) return res.status(404).json({ error: 'Trip not found' })
   if (trip.guide_id !== req.user.id) return res.status(403).json({ error: 'This is not your trip' })

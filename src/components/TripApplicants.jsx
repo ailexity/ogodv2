@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api/client.js'
 import { BOOKING_STATUS, GENDER_OPTIONS } from '../data/categories.js'
-import { formatMoney, getInitials } from './TripDetail.jsx'
+import { useBackLayer } from '../hooks/useBackLayer.js'
+import { formatMoney, getInitials, moneyOrFree } from './TripDetail.jsx'
 import { CheckIcon, CloseIcon, MessageIcon } from './icons.jsx'
 
 const GENDER_LABEL = Object.fromEntries(GENDER_OPTIONS.map((o) => [o.value, o.label]))
@@ -13,6 +14,7 @@ export default function TripApplicants({ trip, onClose, onChanged, onMessage }) 
   const [error, setError] = useState('')
   const [declining, setDeclining] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  useBackLayer(true, onClose)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -172,7 +174,7 @@ export function ApplicantCard({ booking, busy, onApprove, onDecline, onMessage }
           <p className="applicant-name">{lead?.name}</p>
           <p className="applicant-meta">
             {booking.travelers} {booking.travelers === 1 ? 'traveller' : 'travellers'} ·{' '}
-            {formatMoney(booking.totalPaid, booking.trip.currency)}
+            {moneyOrFree(booking.totalPaid, booking.trip.currency)}
           </p>
         </div>
         <span className={`status-pill status-tone-${status.tone}`}>{status.label}</span>
@@ -291,6 +293,7 @@ export function ApplicantCard({ booking, busy, onApprove, onDecline, onMessage }
 function DeclineSheet({ booking, busy, onClose, onConfirm }) {
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
+  useBackLayer(true, onClose)
 
   function submit() {
     if (!note.trim()) {

@@ -1,64 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client.js'
 import { LANGUAGE_OPTIONS } from '../data/categories.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 import { CloseIcon, ShieldIcon } from './icons.jsx'
-
-const DOCUMENTS = [
-  {
-    name: 'idDocument',
-    label: 'Government ID',
-    hint: 'Passport, driving licence or national ID card.',
-    required: true,
-  },
-  {
-    name: 'selfie',
-    label: 'Selfie',
-    hint: 'Used for the liveness match against your ID.',
-    required: true,
-  },
-  {
-    name: 'addressProof',
-    label: 'Proof of address',
-    hint: 'A utility bill or bank statement from the last 3 months.',
-    required: true,
-  },
-  {
-    name: 'licenseDocument',
-    label: 'Tour-guide licence',
-    hint: 'Only if your region requires one.',
-    required: false,
-  },
-  {
-    name: 'feeReceipt',
-    label: 'Subscription payment receipt',
-    hint: 'Screenshot or PDF of your yearly subscription payment to OGod.',
-    required: true,
-  },
-]
-
-function UploadRow({ doc, file, onChange }) {
-  return (
-    <div className="upload-row">
-      <div className="upload-copy">
-        <span className="upload-label">
-          {doc.label}
-          {!doc.required && <span className="upload-optional">Optional</span>}
-        </span>
-        <span className="field-hint">{doc.hint}</span>
-        {file && <span className="upload-filename">{file.name}</span>}
-      </div>
-      <label className={`upload-btn${file ? ' upload-btn-done' : ''}`}>
-        {file ? 'Replace' : 'Upload'}
-        <input
-          type="file"
-          name={doc.name}
-          accept="image/jpeg,image/png,image/webp,application/pdf"
-          onChange={onChange}
-        />
-      </label>
-    </div>
-  )
-}
 
 function formatRupees(amount) {
   return `₹${Number(amount ?? 0).toLocaleString('en-IN')}`
@@ -84,40 +28,37 @@ function SubscriptionNotice({ renewal = false }) {
       {info?.upi ? (
         <p>
           Pay to OGod&apos;s UPI ID <strong className="subscription-upi">{info.upi}</strong>, then
-          upload the payment receipt. It&apos;s checked together with your
-          {renewal ? ' renewal.' : ' documents.'}
+          upload the payment receipt. Our team checks it and extends your subscription.
         </p>
       ) : (
-        <p>OGod&apos;s payment details aren&apos;t set up yet — please contact support before applying.</p>
+        <p>OGod&apos;s payment details aren&apos;t set up yet — please contact support before paying.</p>
       )}
     </div>
   )
 }
 
-/** Doc §4 step 2: the verification application a guide submits for review. */
-export default function GuideVerification({ onClose, onSubmitted }) {
+/**
+ * The essentials a guide gives before their first trip, and how they correct
+ * them later. Nothing is reviewed: saving these is what lets them post.
+ * `requirePayout` is for someone about to post a paid trip.
+ */
+export default function GuideDetails({ user, requirePayout = false, onClose, onSaved }) {
   const [form, setForm] = useState({
-    yearsExperience: '',
-    licenseNumber: '',
-    licenseRegion: '',
-    licenseExpires: '',
-    sampleItinerary: '',
-    areas: '',
+    phone: user.phone ?? '',
+    yearsExperience: user.guideExperience ?? '',
+    areas: (user.guideAreas ?? []).join(', '),
+    bio: user.bio ?? '',
+    upi: user.payoutUpi ?? '',
+    bank: user.payoutBank ?? '',
   })
-  const [languages, setLanguages] = useState([])
-  const [files, setFiles] = useState({})
+  const [languages, setLanguages] = useState(user.languages ?? [])
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  useBackLayer(true, onClose)
 
   function handleChange(e) {
     const { name, value } = e.target
     setForm((prev) => ({ ...prev, [name]: value }))
-    setError('')
-  }
-
-  function handleFileChange(e) {
-    const { name, files: selected } = e.target
-    setFiles((prev) => ({ ...prev, [name]: selected[0] ?? null }))
     setError('')
   }
 
@@ -136,29 +77,27 @@ export default function GuideVerification({ onClose, onSubmitted }) {
       .split(',')
       .map((area) => area.trim())
       .filter(Boolean)
+    const upi = form.upi.trim()
+    const bank = form.bank.trim()
 
+    if (!form.phone.trim()) return setError('Enter a phone number travellers can reach you on')
     if (languages.length === 0) return setError('Select at least one language you speak')
-    if (areas.length === 0) return setError('List at least one area you operate in')
-    for (const doc of DOCUMENTS) {
-      if (doc.required && !files[doc.name]) return setError(`${doc.label} is required`)
-    }
-
-    const payload = new FormData()
-    payload.set('yearsExperience', form.yearsExperience || '0')
-    payload.set('languages', JSON.stringify(languages))
-    payload.set('areas', JSON.stringify(areas))
-    payload.set('licenseNumber', form.licenseNumber)
-    payload.set('licenseRegion', form.licenseRegion)
-    payload.set('licenseExpires', form.licenseExpires)
-    payload.set('sampleItinerary', form.sampleItinerary)
-    for (const [name, file] of Object.entries(files)) {
-      if (file) payload.set(name, file)
+    if (areas.length === 0) return setError('List at least one area you run trips in')
+    if (requirePayout && !upi && !bank) {
+      return setError('Add a UPI ID or bank details, so travellers can pay you')
     }
 
     setSubmitting(true)
     try {
-      const { user } = await api.applyAsGuide(payload)
-      onSubmitted(user)
+      await api.updatePayout({ upi, bank })
+      const { user: updated } = await api.saveGuideDetails({
+        phone: form.phone.trim(),
+        yearsExperience: form.yearsExperience,
+        languages,
+        areas,
+        bio: form.bio.trim(),
+      })
+      onSaved(updated)
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
@@ -171,9 +110,9 @@ export default function GuideVerification({ onClose, onSubmitted }) {
         <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
           <CloseIcon />
         </button>
-        <h2 className="edit-header-title">Become a guide</h2>
+        <h2 className="edit-header-title">Your guide details</h2>
         <button type="button" className="edit-save-btn" onClick={handleSubmit} disabled={submitting}>
-          {submitting ? 'Sending…' : 'Submit'}
+          {submitting ? 'Saving…' : 'Save'}
         </button>
       </header>
 
@@ -181,22 +120,22 @@ export default function GuideVerification({ onClose, onSubmitted }) {
         <div className="notice">
           <ShieldIcon />
           <p>
-            Every guide is verified before they can post a trip. Your documents are reviewed by our
-            team and are never shown to travelers.
+            There&apos;s no approval step — you can post trips as soon as this is saved. Travellers
+            see your languages, areas, experience and bio on your trips, and your phone number on
+            their ticket.
           </p>
         </div>
 
         <form className="form" onSubmit={handleSubmit}>
           <label className="field">
-            <span className="field-label">Years of experience</span>
+            <span className="field-label">Phone number</span>
             <input
-              type="number"
-              name="yearsExperience"
-              value={form.yearsExperience}
+              type="tel"
+              name="phone"
+              value={form.phone}
               onChange={handleChange}
-              min="0"
-              max="70"
-              placeholder="e.g. 6"
+              autoComplete="tel"
+              required
             />
           </label>
 
@@ -218,7 +157,7 @@ export default function GuideVerification({ onClose, onSubmitted }) {
           </div>
 
           <label className="field">
-            <span className="field-label">Areas of operation</span>
+            <span className="field-label">Areas you run trips in</span>
             <input
               type="text"
               name="areas"
@@ -229,78 +168,68 @@ export default function GuideVerification({ onClose, onSubmitted }) {
             <span className="field-hint">Separate each area with a comma.</span>
           </label>
 
-          <div className="field-row">
-            <label className="field">
-              <span className="field-label">Licence number</span>
-              <input
-                type="text"
-                name="licenseNumber"
-                value={form.licenseNumber}
-                onChange={handleChange}
-                placeholder="If required"
-              />
-            </label>
-
-            <label className="field">
-              <span className="field-label">Licence expires</span>
-              <input
-                type="date"
-                name="licenseExpires"
-                value={form.licenseExpires}
-                onChange={handleChange}
-              />
-            </label>
-          </div>
-
           <label className="field">
-            <span className="field-label">Licence region</span>
+            <span className="field-label">
+              Years of experience <span className="upload-optional">Optional</span>
+            </span>
             <input
-              type="text"
-              name="licenseRegion"
-              value={form.licenseRegion}
+              type="number"
+              name="yearsExperience"
+              value={form.yearsExperience}
               onChange={handleChange}
-              placeholder="e.g. Himachal Pradesh"
+              min="0"
+              max="70"
+              placeholder="e.g. 6"
             />
           </label>
 
           <label className="field">
             <span className="field-label">
-              Sample itinerary <span className="upload-optional">Optional</span>
+              About you <span className="upload-optional">Optional</span>
             </span>
             <textarea
-              name="sampleItinerary"
-              value={form.sampleItinerary}
+              name="bio"
+              value={form.bio}
               onChange={handleChange}
-              rows={4}
-              placeholder="A sample day-by-day plan. Helps you get the Certified badge."
+              rows={3}
+              placeholder="Shown to travellers on your trips"
             />
           </label>
 
-          <div className="field">
-            <span className="field-label">Documents</span>
-            <div className="upload-list">
-              {DOCUMENTS.filter((doc) => doc.name !== 'feeReceipt').map((doc) => (
-                <UploadRow key={doc.name} doc={doc} file={files[doc.name]} onChange={handleFileChange} />
-              ))}
-            </div>
-          </div>
-
-          <div className="field">
-            <span className="field-label">Yearly subscription</span>
-            <SubscriptionNotice />
-            <div className="upload-list">
-              <UploadRow
-                doc={DOCUMENTS.find((doc) => doc.name === 'feeReceipt')}
-                file={files.feeReceipt}
-                onChange={handleFileChange}
+          <div className="form-section">
+            <h3 className="form-section-title">
+              How travellers pay you
+              {!requirePayout && <span className="upload-optional">Needed for paid trips</span>}
+            </h3>
+            <p className="field-hint">
+              Travellers see these in the automatic message after they book, and pay you directly.
+            </p>
+            <label className="field">
+              <span className="field-label">UPI ID</span>
+              <input
+                name="upi"
+                value={form.upi}
+                onChange={handleChange}
+                placeholder="yourname@okaxis"
+                autoCapitalize="none"
               />
-            </div>
+            </label>
+            <label className="field">
+              <span className="field-label">Bank details (optional)</span>
+              <textarea
+                name="bank"
+                rows={2}
+                value={form.bank}
+                onChange={handleChange}
+                placeholder="Account name, account number, IFSC"
+              />
+            </label>
           </div>
 
           {error && <p className="form-error">{error}</p>}
 
           <button type="submit" className="submit" disabled={submitting}>
-            {submitting ? 'Sending…' : 'Submit application'}
+            {submitting ? 'Saving…' : 'Save details'}
           </button>
         </form>
       </div>
@@ -308,7 +237,6 @@ export default function GuideVerification({ onClose, onSubmitted }) {
   )
 }
 
-/** Doc §4 steps 5–7: what the guide sees about their own verification state. */
 function subscriptionState(user) {
   if (!user.subscriptionUntil) return { active: false, daysLeft: 0 }
   const end = new Date(`${user.subscriptionUntil}T23:59:59Z`)
@@ -316,64 +244,8 @@ function subscriptionState(user) {
   return { active: daysLeft > 0, daysLeft }
 }
 
-export function GuideStatusCard({ user, application, renewal, onApply, onRenew }) {
-  if (user.guideStatus === 'none') {
-    return (
-      <div className="status-card">
-        <div className="status-card-head">
-          <ShieldIcon />
-          <div>
-            <h3 className="status-card-title">Become a guide</h3>
-            <p className="status-card-text">
-              Get verified to post trips, take bookings and earn on OGod.
-            </p>
-          </div>
-        </div>
-        <button type="button" className="submit" onClick={onApply}>
-          Start verification
-        </button>
-      </div>
-    )
-  }
-
-  if (user.guideStatus === 'pending') {
-    return (
-      <div className="status-card status-card-pending">
-        <div className="status-card-head">
-          <ShieldIcon />
-          <div>
-            <h3 className="status-card-title">Verification under review</h3>
-            <p className="status-card-text">
-              We&apos;re checking your documents. You&apos;ll be notified once a decision is made.
-            </p>
-          </div>
-        </div>
-        {application?.submittedAt && (
-          <p className="status-card-meta">Submitted {application.submittedAt}</p>
-        )}
-      </div>
-    )
-  }
-
-  if (user.guideStatus === 'rejected') {
-    return (
-      <div className="status-card status-card-rejected">
-        <div className="status-card-head">
-          <ShieldIcon />
-          <div>
-            <h3 className="status-card-title">Verification not approved</h3>
-            <p className="status-card-text">
-              {application?.reviewNotes ?? 'Your application was not approved.'}
-            </p>
-          </div>
-        </div>
-        <button type="button" className="submit" onClick={onApply}>
-          Fix and reapply
-        </button>
-      </div>
-    )
-  }
-
+/** Doc §4 steps 5–7: what someone sees about their own standing as a guide. */
+export function GuideStatusCard({ user, renewal, onEditDetails, onRenew }) {
   if (user.guideStatus === 'suspended') {
     return (
       <div className="status-card status-card-rejected">
@@ -390,49 +262,79 @@ export function GuideStatusCard({ user, application, renewal, onApply, onRenew }
     )
   }
 
+  if (!user.isGuide) {
+    return (
+      <div className="status-card">
+        <div className="status-card-head">
+          <ShieldIcon />
+          <div>
+            <h3 className="status-card-title">Post your own trips</h3>
+            <p className="status-card-text">
+              Anyone can post a trip on OGod, paid or free. Add a few details so travellers know who
+              they&apos;re going with.
+            </p>
+          </div>
+        </div>
+        <button type="button" className="submit" onClick={onEditDetails}>
+          Add your details
+        </button>
+      </div>
+    )
+  }
+
   const { active, daysLeft } = subscriptionState(user)
+  const lapsed = user.subscriptionRequired && !active
   const renewalPending = renewal?.status === 'pending'
-  const canRenew = !renewalPending && daysLeft <= 30
+  const canRenew = user.subscriptionRequired && !renewalPending && daysLeft <= 30
 
   return (
-    <div className={`status-card ${active ? 'status-card-verified' : 'status-card-rejected'}`}>
+    <div className={`status-card ${lapsed ? 'status-card-rejected' : 'status-card-verified'}`}>
       <div className="status-card-head">
         <ShieldIcon />
         <div>
           <h3 className="status-card-title">
-            Verified guide{user.certified && ' · Certified'}
+            {user.guideStatus === 'verified' ? 'Verified guide' : 'Tour guide'}
+            {user.certified && ' · Certified'}
           </h3>
           <p className="status-card-text">
-            {active
+            {!lapsed
               ? 'Your profile is live and you can post trips.'
-              : 'Your yearly subscription has expired, so you can’t post or open trips until you renew.'}
+              : user.subscriptionUntil
+                ? 'Your yearly subscription has expired, so you can’t post or open trips until you renew.'
+                : 'Posting trips needs a yearly subscription. Pay it to get started.'}
           </p>
         </div>
       </div>
-      {user.subscriptionUntil && (
+      {user.subscriptionRequired && user.subscriptionUntil && (
         <p className="status-card-meta">
           Subscription {active ? 'active until' : 'ended on'} {user.subscriptionUntil}
           {active && daysLeft <= 30 && ` · ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} left`}
         </p>
       )}
-      {renewalPending && <p className="status-card-meta">Renewal payment under review.</p>}
-      {renewal?.status === 'rejected' && !renewalPending && renewal.reviewNotes && (
-        <p className="status-card-meta">Last renewal not approved: {renewal.reviewNotes}</p>
+      {user.subscriptionRequired && renewalPending && (
+        <p className="status-card-meta">Subscription payment under review.</p>
+      )}
+      {user.subscriptionRequired && renewal?.status === 'rejected' && renewal.reviewNotes && (
+        <p className="status-card-meta">Last payment not approved: {renewal.reviewNotes}</p>
       )}
       {canRenew && onRenew && (
         <button type="button" className="submit" onClick={onRenew}>
-          Renew subscription
+          {user.subscriptionUntil ? 'Renew subscription' : 'Pay subscription'}
         </button>
       )}
+      <button type="button" className="ghost-btn full-width status-card-edit" onClick={onEditDetails}>
+        Edit guide details
+      </button>
     </div>
   )
 }
 
 /** A yearly renewal: pay OGod, upload the receipt, and the admin extends it. */
-export function SubscriptionRenewal({ onClose, onSubmitted }) {
+export function SubscriptionRenewal({ user, onClose, onSubmitted }) {
   const [file, setFile] = useState(null)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  useBackLayer(true, onClose)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -456,12 +358,14 @@ export function SubscriptionRenewal({ onClose, onSubmitted }) {
         <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
           <CloseIcon />
         </button>
-        <h2 className="edit-header-title">Renew subscription</h2>
+        <h2 className="edit-header-title">
+          {user.subscriptionUntil ? 'Renew subscription' : 'Guide subscription'}
+        </h2>
         <span className="edit-header-spacer" />
       </header>
       <div className="edit-body">
         <form className="form" onSubmit={handleSubmit}>
-          <SubscriptionNotice renewal />
+          <SubscriptionNotice renewal={Boolean(user.subscriptionUntil)} />
           <div className="upload-row">
             <div className="upload-copy">
               <span className="upload-label">Payment receipt</span>
@@ -496,6 +400,7 @@ export function PayoutDetails({ user, onClose, onSaved }) {
   const [bank, setBank] = useState(user.payoutBank ?? '')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  useBackLayer(true, onClose)
 
   async function handleSubmit(e) {
     e.preventDefault()

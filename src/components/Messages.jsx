@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, downloadTicket, fetchPrivateImage } from '../api/client.js'
-import { formatMoney, getInitials } from './TripDetail.jsx'
+import { getInitials, moneyOrFree } from './TripDetail.jsx'
 import { cancelBookingWithConfirm } from './cancelBooking.js'
 import { formatDateRange } from '../data/dates.js'
+import { useBackLayer } from '../hooks/useBackLayer.js'
 import {
   ChevronLeftIcon,
   CloseIcon,
@@ -107,6 +108,7 @@ export function MessagesInbox({ onClose, onOpen }) {
   const [conversations, setConversations] = useState(null)
   const [error, setError] = useState('')
   useScrollLock()
+  useBackLayer(true, onClose)
 
   useEffect(() => {
     let cancelled = false
@@ -200,6 +202,7 @@ export function ChatThread({ conversationId, onClose }) {
   const fileRef = useRef(null)
   useScrollLock()
   useVisualViewportFit(overlayRef)
+  useBackLayer(true, onClose)
 
   const append = useCallback((incoming) => {
     if (!incoming.length) return
@@ -401,7 +404,7 @@ function BookingCard({ message, role, onChanged }) {
   const isGuide = role === 'guide'
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const amount = formatMoney(booking.total, booking.currency)
+  const amount = moneyOrFree(booking.total, booking.currency)
   const summary = `${booking.travelers} ${booking.travelers === 1 ? 'traveller' : 'travellers'} · ${amount}`
 
   async function run(action) {
@@ -428,24 +431,34 @@ function BookingCard({ message, role, onChanged }) {
   }
 
   if (kind === 'ticket') {
+    const cancelled = booking.status === 'cancelled'
     return (
       <div className="chat-card">
         <p className="chat-card-title">
-          <TicketIcon /> Booking confirmed
+          <TicketIcon />{' '}
+          {cancelled
+            ? 'Booking cancelled'
+            : booking.total > 0
+              ? 'Booking confirmed'
+              : isGuide
+                ? 'Coming along'
+                : 'You’re in'}
         </p>
         <p className="chat-card-meta">
           {booking.tripTitle}
           {booking.startDate && ` · ${formatDateRange(booking.startDate)}`}
         </p>
         <p className="chat-card-meta">{summary}</p>
-        <button
-          type="button"
-          className="chat-card-btn"
-          disabled={busy}
-          onClick={() => run(() => downloadTicket(booking.id))}
-        >
-          Download ticket (PDF)
-        </button>
+        {!cancelled && (
+          <button
+            type="button"
+            className="chat-card-btn"
+            disabled={busy}
+            onClick={() => run(() => downloadTicket(booking.id))}
+          >
+            Download ticket (PDF)
+          </button>
+        )}
         {error && <p className="form-error">{error}</p>}
       </div>
     )

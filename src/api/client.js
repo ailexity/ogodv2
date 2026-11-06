@@ -112,7 +112,7 @@ export const api = {
   updatePayout: (data) => request('PUT', '/auth/me/payout', { body: data }),
   completeTour: () => request('POST', '/auth/me/tour'),
 
-  applyAsGuide: (form) => request('POST', '/guides/apply', { form }),
+  saveGuideDetails: (data) => request('PUT', '/guides/details', { body: data }),
   myApplication: () => request('GET', '/guides/application'),
   subscriptionInfo: () => request('GET', '/guides/subscription'),
   renewSubscription: (form) => request('POST', '/guides/renew', { form }),

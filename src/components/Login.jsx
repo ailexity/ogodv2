@@ -42,7 +42,7 @@ export default function Login({
   return (
     <AuthLayout
       title="Welcome back"
-      subtitle="Sign in to find verified local guides and book your next trip."
+      subtitle="Sign in to find local guides and book your next trip."
       footer={
         <p className="switch-text">
           Don&apos;t have an account?{' '}
