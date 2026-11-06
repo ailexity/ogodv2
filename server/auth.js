@@ -34,11 +34,6 @@ function isCurrent(payload, row) {
   return (payload.ver ?? 0) === (row.token_version ?? 0)
 }
 
-/** Posting is free and needs no review, only the guide details. A suspension blocks it. */
-export function canPostTrips(row) {
-  return Boolean(row?.guide_since) && row.guide_status !== 'suspended'
-}
-
 export function publicUser(row) {
   if (!row) return null
   return {
@@ -52,14 +47,8 @@ export function publicUser(row) {
     bio: row.bio,
     interests: JSON.parse(row.interests ?? '[]'),
     languages: JSON.parse(row.languages ?? '[]'),
-    guideStatus: row.guide_status,
-    certified: Boolean(row.certified),
-    isGuide: Boolean(row.guide_since),
-    canPostTrips: canPostTrips(row),
-    guideAreas: JSON.parse(row.guide_areas ?? '[]'),
-    guideExperience: row.guide_experience,
+    suspended: row.guide_status === 'suspended',
     payoutUpi: row.payout_upi,
-    payoutBank: row.payout_bank,
     disabled: Boolean(row.disabled),
     emailVerified: Boolean(row.email_verified),
     hasPassword: Boolean(row.password_hash),
@@ -113,19 +102,10 @@ export function requireAdmin(req, res, next) {
   next()
 }
 
-/** Anyone can post trips once they've given their guide details; there is no review or fee. */
-export function requireGuide(req, res, next) {
+/** Anyone signed in can post a trip, and is the guide on it. Only a suspension stops them. */
+export function requireCanPost(req, res, next) {
   if (req.user.guide_status === 'suspended') {
-    return res.status(403).json({
-      error: 'Your guide account is suspended, contact support',
-      guideStatus: req.user.guide_status,
-    })
-  }
-  if (!req.user.guide_since) {
-    return res.status(403).json({
-      error: 'Add your guide details before posting a trip',
-      code: 'guide_details_required',
-    })
+    return res.status(403).json({ error: 'Your account is suspended from posting trips, contact support' })
   }
   next()
 }

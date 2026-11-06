@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 import { getInitials } from '../TripDetail.jsx'
-import { CloseIcon, SearchIcon, VerifiedIcon } from '../icons.jsx'
+import { CloseIcon, SearchIcon } from '../icons.jsx'
 import PasswordInput from '../PasswordInput.jsx'
 import { useBackLayer } from '../../hooks/useBackLayer.js'
 
 const ROLE_FILTERS = [
   { key: '', label: 'Everyone' },
-  { key: 'traveler', label: 'Travelers' },
-  { key: 'guide', label: 'Guides' },
+  { key: 'traveler', label: 'Members' },
   { key: 'admin', label: 'Admins' },
 ]
 
@@ -42,7 +41,7 @@ export default function AdminPeople({ currentUserId }) {
   async function toggleSuspension(person) {
     setBusyId(person.id)
     try {
-      if (person.guideStatus === 'suspended') await api.reinstateGuide(person.id)
+      if (person.suspended) await api.reinstateGuide(person.id)
       else await api.suspendGuide(person.id)
       await load()
     } catch (err) {
@@ -94,7 +93,6 @@ export default function AdminPeople({ currentUserId }) {
                 <tr>
                   <th>Account</th>
                   <th>Role</th>
-                  <th>Guide</th>
                   <th className="num">Trips</th>
                   <th className="num">Bookings</th>
                   <th />
@@ -109,10 +107,8 @@ export default function AdminPeople({ currentUserId }) {
                         <div>
                           <span className="table-name">
                             {person.name}
-                            {person.guideStatus === 'verified' && (
-                              <span className="verified-badge verified-badge-sm">
-                                <VerifiedIcon />
-                              </span>
+                            {person.suspended && (
+                              <span className="status-pill status-suspended">Suspended</span>
                             )}
                             {person.disabled && (
                               <span className="status-pill status-suspended">Disabled</span>
@@ -128,31 +124,20 @@ export default function AdminPeople({ currentUserId }) {
                     <td>
                       <span className="role-tag">{person.role}</span>
                     </td>
-                    <td>
-                      {person.guideStatus !== 'none' ? (
-                        <span className={`status-pill status-${person.guideStatus}`}>
-                          {person.guideStatus}
-                        </span>
-                      ) : person.isGuide ? (
-                        <span className="status-pill status-tone-info">not verified</span>
-                      ) : (
-                        <span className="table-muted">—</span>
-                      )}
-                    </td>
                     <td className="num">{person.tripCount}</td>
                     <td className="num">{person.bookingCount}</td>
                     <td className="row-actions">
                       <button type="button" className="ghost-btn" onClick={() => setEditing(person)}>
                         Manage
                       </button>
-                      {(person.isGuide || ['verified', 'suspended'].includes(person.guideStatus)) && (
+                      {person.role !== 'admin' && (
                         <button
                           type="button"
-                          className={`ghost-btn${person.guideStatus === 'suspended' ? '' : ' danger'}`}
+                          className={`ghost-btn${person.suspended ? '' : ' danger'}`}
                           disabled={busyId === person.id}
                           onClick={() => toggleSuspension(person)}
                         >
-                          {person.guideStatus === 'suspended' ? 'Reinstate' : 'Suspend'}
+                          {person.suspended ? 'Reinstate' : 'Suspend'}
                         </button>
                       )}
                     </td>
@@ -379,8 +364,7 @@ function PersonEditor({ person, isSelf, onClose, onChanged, onDeleted }) {
               <label className="field">
                 <span className="field-label">Account type</span>
                 <select value={role} onChange={(e) => setRole(e.target.value)} disabled={isSelf}>
-                  <option value="traveler">Traveller</option>
-                  <option value="guide">Guide</option>
+                  <option value="traveler">Member</option>
                   <option value="admin">Admin</option>
                 </select>
               </label>

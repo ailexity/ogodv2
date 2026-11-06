@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
-import { formatMoney } from '../TripDetail.jsx'
 import { TRIP_STATUS } from '../../data/categories.js'
 
 export default function AdminOverview() {
@@ -24,38 +23,13 @@ export default function AdminOverview() {
   return (
     <div className="console-sections">
       <section>
-        <h2 className="console-section-title">Revenue</h2>
-        <div className="stat-grid">
-          <StatCard
-            label="Gross bookings"
-            value={formatMoney(stats.revenue.gross)}
-            hint="Excludes cancelled bookings"
-            emphasis
-          />
-          <StatCard
-            label="Platform fees"
-            value={formatMoney(stats.revenue.platformFees)}
-            hint="Service fees collected"
-          />
-          <StatCard label="Seats sold" value={stats.bookings.seatsSold} hint="Across all bookings" />
-        </div>
-      </section>
-
-      <section>
         <h2 className="console-section-title">People</h2>
         <div className="stat-grid">
           <StatCard label="Total accounts" value={stats.users.total} emphasis />
-          <StatCard label="Travelers" value={stats.users.travelers} />
-          <StatCard label="Guides" value={stats.users.guides} />
+          <StatCard label="Members" value={stats.users.members} />
+          <StatCard label="Posting trips" value={stats.users.postingTrips} />
+          <StatCard label="Suspended" value={stats.users.suspended} tone="danger" />
           <StatCard label="Admins" value={stats.users.admins} />
-        </div>
-      </section>
-
-      <section>
-        <h2 className="console-section-title">Guides</h2>
-        <div className="stat-grid">
-          <StatCard label="Verified" value={stats.guides.verified} emphasis />
-          <StatCard label="Suspended" value={stats.guides.suspended} tone="danger" />
         </div>
       </section>
 
@@ -63,6 +37,7 @@ export default function AdminOverview() {
         <h2 className="console-section-title">Bookings</h2>
         <div className="stat-grid">
           <StatCard label="Total" value={stats.bookings.total} emphasis />
+          <StatCard label="Seats sold" value={stats.bookings.seatsSold} />
           <StatCard label="Awaiting approval" value={stats.bookings.pending ?? 0} />
           <StatCard label="Upcoming" value={stats.bookings.confirmed ?? 0} />
           <StatCard label="Completed" value={stats.bookings.completed ?? 0} />

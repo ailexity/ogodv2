@@ -6,7 +6,6 @@ import {
   TRIP_CATEGORIES,
 } from '../data/categories.js'
 import { useBackLayer } from '../hooks/useBackLayer.js'
-import { PayoutDetails } from './GuideDetails.jsx'
 import { CloseIcon, ImageIcon, PlusIcon } from './icons.jsx'
 import { TripCover } from './TripDetail.jsx'
 import {
@@ -22,7 +21,7 @@ import {
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP']
 const MAX_COVER_BYTES = 10 * 1024 * 1024
 
-function initialState(trip) {
+function initialState(trip, user) {
   return {
     title: trip?.title ?? '',
     destination: trip?.destination ?? '',
@@ -39,6 +38,8 @@ function initialState(trip) {
     included: (trip?.included ?? []).join('\n'),
     excluded: (trip?.excluded ?? []).join('\n'),
     highlights: (trip?.highlights ?? []).join('\n'),
+    upi: user.payoutUpi ?? '',
+    phone: '',
   }
 }
 
@@ -50,15 +51,15 @@ function toLines(value) {
 }
 
 /**
- * Doc §5 step 1: the full trip listing a guide creates. `free` starts a new trip
- * as "just come along": no price and no payment, which is what a price of 0 means.
+ * Doc §5 step 1: the full trip listing. Whoever creates it is the guide on it, and
+ * gives what that takes here rather than in a separate step: a phone number if the
+ * account has none, and on a paid trip the UPI ID travellers pay. `free` starts a new
+ * trip as "just come along": no price and no payment, which is what a price of 0 means.
  */
 export default function TripForm({ trip, free: startFree = false, user, onUserChange, onClose, onSaved }) {
   const editing = Boolean(trip)
-  const [form, setForm] = useState(() => initialState(trip))
+  const [form, setForm] = useState(() => initialState(trip, user))
   const [free, setFree] = useState(trip ? !trip.pricePerPerson : startFree)
-  const [addingPayout, setAddingPayout] = useState(false)
-  const hasPayout = Boolean(user.payoutUpi || user.payoutBank)
   useBackLayer(true, onClose)
   const [category, setCategory] = useState(trip?.category ?? null)
   const [languages, setLanguages] = useState(trip?.languages ?? [])
@@ -134,15 +135,14 @@ export default function TripForm({ trip, free: startFree = false, user, onUserCh
     if (Number(form.maxGroupSize) < Number(form.minGroupSize)) {
       return setError('Maximum group size must be at least the minimum')
     }
-    if (!free) {
-      if (!(Number(form.pricePerPerson) > 0)) {
-        return setError('Enter the price per person, or make this a free trip')
-      }
-      const goingLive = editing ? trip.status !== 'draft' : status === 'published'
-      if (goingLive && !hasPayout) {
-        setAddingPayout(true)
-        return setError('Add your payment details first, so travellers can pay you')
-      }
+    if (!free && !(Number(form.pricePerPerson) > 0)) {
+      return setError('Enter the price per person, or make this a free trip')
+    }
+    const upi = form.upi.trim()
+    const phone = form.phone.trim()
+    if (editing ? trip.status !== 'draft' : status === 'published') {
+      if (!free && !upi) return setError('Add your UPI ID, so travellers can pay you')
+      if (!user.phone && !phone) return setError('Add a phone number travellers can reach you on')
     }
 
     const payload = {
@@ -172,6 +172,12 @@ export default function TripForm({ trip, free: startFree = false, user, onUserCh
 
     setSubmitting(true)
     try {
+      // Kept on the profile, so the next trip already has them.
+      const details = { ...(!free && upi && upi !== user.payoutUpi && { upi }), ...(phone && { phone }) }
+      if (Object.keys(details).length > 0) {
+        const { user: updated } = await api.updatePayout(details)
+        onUserChange(updated)
+      }
       if (coverFile) {
         const { url } = await api.uploadTripCover(coverFile)
         // Keep the upload, so retrying after a failed save doesn't send it again.
@@ -186,12 +192,10 @@ export default function TripForm({ trip, free: startFree = false, user, onUserCh
     } catch (err) {
       setError(err.message)
       setSubmitting(false)
-      if (err.code === 'payout_required') setAddingPayout(true)
     }
   }
 
   return (
-    <>
     <div className="edit-overlay">
       <header className="edit-header">
         <button type="button" className="edit-icon-btn" onClick={onClose} aria-label="Cancel">
@@ -436,13 +440,29 @@ export default function TripForm({ trip, free: startFree = false, user, onUserCh
               </div>
             )}
 
-            {!free && !hasPayout && (
-              <div className="notice trip-payout-notice">
-                <p>Travellers pay you directly, so add your UPI ID or bank details before publishing.</p>
-                <button type="button" className="ghost-btn" onClick={() => setAddingPayout(true)}>
-                  Add payment details
-                </button>
-              </div>
+            {!free && (
+              <label className="field">
+                <span className="field-label">Your UPI ID</span>
+                <input
+                  name="upi"
+                  value={form.upi}
+                  onChange={handleChange}
+                  placeholder="yourname@okaxis"
+                  autoCapitalize="none"
+                />
+                <span className="field-hint">
+                  Travellers pay you here and send a screenshot in Messages. Once you&apos;ve checked
+                  the payment, you approve the booking and they get their PDF ticket.
+                </span>
+              </label>
+            )}
+
+            {!user.phone && (
+              <label className="field">
+                <span className="field-label">Your phone number</span>
+                <input type="tel" name="phone" value={form.phone} onChange={handleChange} autoComplete="tel" />
+                <span className="field-hint">Shown on the tickets of people on your trips.</span>
+              </label>
             )}
 
             <div className="field-row">
@@ -599,18 +619,5 @@ export default function TripForm({ trip, free: startFree = false, user, onUserCh
         </form>
       </div>
     </div>
-
-    {addingPayout && (
-      <PayoutDetails
-        user={user}
-        onClose={() => setAddingPayout(false)}
-        onSaved={(updated) => {
-          onUserChange(updated)
-          setAddingPayout(false)
-          setError('')
-        }}
-      />
-    )}
-    </>
   )
 }

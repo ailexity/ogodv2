@@ -256,25 +256,13 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
             </p>
           ) : (
           <div className="form-section">
-            <h3 className="form-section-title">Price breakdown</h3>
+            <h3 className="form-section-title">Price</h3>
             {quote ? (
               <div className="price-rows">
-                <div className="price-row">
-                  <span>
-                    {formatMoney(trip.pricePerPerson, trip.currency)} × {count}
-                  </span>
-                  <span>{formatMoney(quote.base, quote.currency)}</span>
-                </div>
-                <div className="price-row">
-                  <span>Service fee</span>
-                  <span>{formatMoney(quote.serviceFee, quote.currency)}</span>
-                </div>
-                <div className="price-row">
-                  <span>Taxes</span>
-                  <span>{formatMoney(quote.tax, quote.currency)}</span>
-                </div>
                 <div className="price-row price-total">
-                  <span>Total</span>
+                  <span>
+                    Total ({formatMoney(trip.pricePerPerson, trip.currency)} × {count})
+                  </span>
                   <span>{formatMoney(quote.total, quote.currency)}</span>
                 </div>
               </div>
@@ -284,8 +272,8 @@ export default function BookTrip({ trip, user, onClose, onBooked }) {
               <p className="field-hint">Calculating…</p>
             )}
             <p className="field-hint">
-              Your guide will message you with payment details. Pay them directly and send a
-              screenshot in the chat — they confirm your seats once they&apos;ve checked it.
+              Your guide will message you their UPI ID. Pay them on it and send a screenshot in
+              the chat — they send your ticket once they&apos;ve checked the payment.
             </p>
           </div>
           )}

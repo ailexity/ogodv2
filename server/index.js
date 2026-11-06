@@ -3,7 +3,6 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import authRoutes from './routes/auth.js'
-import guideRoutes from './routes/guides.js'
 import adminRoutes from './routes/admin.js'
 import tripRoutes from './routes/trips.js'
 import bookingRoutes from './routes/bookings.js'
@@ -35,7 +34,6 @@ app.use(express.json({ limit: '1mb' }))
 app.get('/api/health', (_req, res) => res.json({ ok: true }))
 
 app.use('/api/auth', authRoutes)
-app.use('/api/guides', guideRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/trips', tripRoutes)
 app.use('/api/bookings', bookingRoutes)

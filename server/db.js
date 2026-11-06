@@ -25,7 +25,7 @@ db.exec(`
     email         TEXT    NOT NULL UNIQUE,
     password_hash TEXT    NOT NULL,
     role          TEXT    NOT NULL DEFAULT 'traveler'
-                  CHECK (role IN ('traveler', 'guide', 'admin')),
+                  CHECK (role IN ('traveler', 'admin')),
     name          TEXT    NOT NULL,
     age           INTEGER,
     phone         TEXT,
@@ -33,38 +33,12 @@ db.exec(`
     interests     TEXT    NOT NULL DEFAULT '[]',
     bio           TEXT,
     languages     TEXT    NOT NULL DEFAULT '[]',
+    -- 'suspended' stops someone posting trips. Being a guide isn't a kind of account:
+    -- whoever posts a trip is the guide on that trip (trips.guide_id).
     guide_status  TEXT    NOT NULL DEFAULT 'none'
-                  CHECK (guide_status IN ('none', 'pending', 'verified', 'rejected', 'suspended')),
-    certified     INTEGER NOT NULL DEFAULT 0,
+                  CHECK (guide_status IN ('none', 'suspended')),
     created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
   );
-
-  -- From the old guide review. Nothing writes here now; the rows are kept so no
-  -- records are lost, and to fill in the guide details of guides it approved.
-  CREATE TABLE IF NOT EXISTS guide_applications (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status           TEXT    NOT NULL DEFAULT 'pending'
-                     CHECK (status IN ('pending', 'approved', 'rejected')),
-    years_experience INTEGER NOT NULL DEFAULT 0,
-    languages        TEXT    NOT NULL DEFAULT '[]',
-    areas            TEXT    NOT NULL DEFAULT '[]',
-    license_number   TEXT,
-    license_region   TEXT,
-    license_expires  TEXT,
-    sample_itinerary TEXT,
-    id_document      TEXT,
-    selfie           TEXT,
-    license_document TEXT,
-    address_proof    TEXT,
-    review_notes     TEXT,
-    reviewed_by      INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    reviewed_at      TEXT,
-    created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_applications_status ON guide_applications(status);
-  CREATE INDEX IF NOT EXISTS idx_applications_user   ON guide_applications(user_id);
 
   CREATE TABLE IF NOT EXISTS trips (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -192,7 +166,6 @@ ensureColumn('users', 'google_id', 'TEXT')
 ensureColumn('users', 'token_version', 'INTEGER NOT NULL DEFAULT 0')
 // Where travellers pay a guide; quoted in the automatic message after each booking.
 ensureColumn('users', 'payout_upi', 'TEXT')
-ensureColumn('users', 'payout_bank', 'TEXT')
 // Set once the first-run app tour is finished or skipped. Accounts from before
 // the tour existed already know their way around, so they never see it.
 if (ensureColumn('users', 'tour_completed_at', 'TEXT')) {
@@ -202,34 +175,8 @@ if (ensureColumn('users', 'tour_completed_at', 'TEXT')) {
 ensureColumn('bookings', 'payment_status', "TEXT NOT NULL DEFAULT 'unpaid'")
 // Who ended a cancelled booking: 'traveler', 'guide' (declined) or 'trip' (trip cancelled).
 ensureColumn('bookings', 'cancelled_by', 'TEXT')
-// 'verification' (first application) or 'renewal' (the old yearly fee).
-ensureColumn('guide_applications', 'kind', "TEXT NOT NULL DEFAULT 'verification'")
-// What a guide tells travellers about themselves; shown on their trips.
-ensureColumn('users', 'guide_areas', "TEXT NOT NULL DEFAULT '[]'")
-ensureColumn('users', 'guide_experience', 'INTEGER')
-// What to go back to when a suspension is lifted, so lifting one can't hand out
-// a Verified badge to someone who never had it.
-ensureColumn('users', 'suspended_from', 'TEXT')
-// Set when someone gives their guide details, which is what lets them post trips.
-// Guides verified under the old review already gave them on their application.
-if (ensureColumn('users', 'guide_since', 'TEXT')) {
-  db.exec(`
-    UPDATE users
-       SET guide_since = datetime('now'),
-           guide_areas = COALESCE(
-             (SELECT a.areas FROM guide_applications a
-               WHERE a.user_id = users.id AND a.kind = 'verification' AND a.status = 'approved'
-               ORDER BY a.id DESC LIMIT 1),
-             guide_areas),
-           guide_experience =
-             (SELECT a.years_experience FROM guide_applications a
-               WHERE a.user_id = users.id AND a.kind = 'verification' AND a.status = 'approved'
-               ORDER BY a.id DESC LIMIT 1)
-     WHERE guide_status IN ('verified', 'suspended')
-  `)
-}
-// Nothing reviews guides any more, so these two statuses no longer mean anything.
-db.exec("UPDATE users SET guide_status = 'none' WHERE guide_status IN ('pending', 'rejected')")
+// Being a guide belongs to a trip now, so no account is "a guide" any more.
+db.exec("UPDATE users SET role = 'traveler' WHERE role = 'guide'")
 
 db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google ON users(google_id) WHERE google_id IS NOT NULL;

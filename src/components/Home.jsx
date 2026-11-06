@@ -18,7 +18,7 @@ import { formatDateRange, timeAgo, tripCountdown } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
 import { BACK_LEVEL, useBackLayer } from '../hooks/useBackLayer.js'
 import { BlogComposer, BlogDetailOverlay, BlogsAllOverlay, BlogsSection } from './Blogs.jsx'
-import GuideDetails, { GuideStatusCard, PayoutDetails } from './GuideDetails.jsx'
+import { PayoutDetails, PostTripCard } from './TripHosting.jsx'
 import { ChatThread, MessagesInbox, useChatLauncher, useUnreadMessages } from './Messages.jsx'
 import TripApplicants from './TripApplicants.jsx'
 import TripForm from './TripForm.jsx'
@@ -45,7 +45,6 @@ import {
   SlidersIcon,
   StarIcon,
   TripsIcon,
-  VerifiedIcon,
 } from './icons.jsx'
 
 const NOTIFICATION_SETTINGS_KEY = 'ogod_notification_settings'
@@ -135,7 +134,7 @@ export const FILTERS = [
 
 const TERMS_TEXT = [
   'By using OGod, you agree to book and travel responsibly, and to provide accurate information when creating an account or posting a trip.',
-  'Anyone can post a trip free of charge once they have given their guide details. OGod does not review guides before they post, so only a guide showing the Verified badge has been checked by OGod.',
+  'Anyone can post a trip free of charge, and is the guide on the trips they post. OGod does not review guides before they post.',
   'Trips listed on OGod are run by independent guides. OGod is not responsible for the outcome of any trip, and can suspend a guide who breaks these terms.',
   'Your personal information is used only to operate your account and is never sold to third parties.',
   'These terms may be updated from time to time. Continued use of the app means you accept the latest version.',
@@ -164,8 +163,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
   const [notifSettings, setNotifSettings] = useState(loadNotificationSettings)
   const [editingProfile, setEditingProfile] = useState(false)
   const [tripFormState, setTripFormState] = useState(null)
-  // The guide details form: `{ free }` on the way to posting a trip, or `{ editing: true }`.
-  const [guideDetails, setGuideDetails] = useState(null)
+  // Which part of My Trips to open on: someone who just posted a trip wants to see it.
+  const [tripsSegment, setTripsSegment] = useState('attending')
   const [bookingTrip, setBookingTrip] = useState(null)
   const [applicantsTrip, setApplicantsTrip] = useState(null)
   const [blogs, setBlogs] = useState([])
@@ -351,27 +350,18 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     })
   }
 
-  /**
-   * Anyone can post a trip, free of charge. The first time, they give their guide
-   * details; a suspended guide sees why they can't on their profile.
-   */
+  /** Anyone can post a trip, free of charge. A suspended account sees why they can't on their profile. */
   function startTrip(free = false) {
     setCreating(false)
     if (!signedIn) onSignIn('login')
-    else if (user.canPostTrips) setTripFormState({ trip: null, free })
-    else if (user.guideStatus === 'suspended') setActiveTab('profile')
-    else setGuideDetails({ free })
-  }
-
-  function handleGuideDetailsSaved(updated) {
-    onUserChange(updated)
-    setGuideDetails(null)
-    if (!guideDetails.editing) setTripFormState({ trip: null, free: guideDetails.free })
+    else if (user.suspended) setActiveTab('profile')
+    else setTripFormState({ trip: null, free })
   }
 
   async function handleTripSaved() {
     setTripFormState(null)
     await Promise.all([loadTrips(), loadMyTrips()])
+    setTripsSegment('listings')
     setActiveTab('trips')
   }
 
@@ -415,6 +405,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
     setBookingTrip(null)
     // Seat counts on the feed change too, so refresh both.
     await Promise.all([loadBookings(), loadTrips()])
+    setTripsSegment('attending')
     setActiveTab('trips')
     // The guide's automatic message has the payment details, so show it.
     if (conversationId) chat.setChatId(conversationId)
@@ -428,11 +419,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
             {user ? `Hello, ${user.name.split(' ')[0]}` : 'Discover trips'}
           </h1>
           <p className="greeting-sub">
-            {user?.guideStatus === 'verified'
-              ? 'Verified guide'
-              : user?.canPostTrips
-                ? 'Tour guide'
-                : 'Book trips of your favorite places'}
+            {user ? 'Post a trip or join one' : 'Book trips of your favorite places'}
           </p>
         </div>
         {!user && (
@@ -460,11 +447,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
           aria-label="Your profile"
         >
           {getInitials(user.name)}
-          {user?.guideStatus === 'verified' && (
-            <span className="greeting-verified" aria-hidden="true">
-              <VerifiedIcon />
-            </span>
-          )}
         </button>
         </>
         )}
@@ -588,7 +570,8 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
 
         {activeTab === 'trips' && (
           <MyTripsTab
-            user={user}
+            startSegment={tripsSegment}
+            error={loadError}
             bookings={bookings}
             loadingBookings={loadingBookings}
             listings={myTrips}
@@ -610,19 +593,11 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
               <div className="profile-avatar">{getInitials(user.name)}</div>
               <h2 className="profile-name">
                 {user.name}
-                {user.guideStatus === 'verified' && (
-                  <span className="verified-badge" title="Verified guide">
-                    <VerifiedIcon />
-                  </span>
-                )}
               </h2>
               <p className="profile-email">{user.email}</p>
             </div>
 
-            <GuideStatusCard
-              user={user}
-              onEditDetails={() => setGuideDetails({ editing: true })}
-            />
+            <PostTripCard user={user} onCreate={() => setCreating(true)} />
 
             <div className="profile-details">
               <div className="profile-detail-row">
@@ -655,7 +630,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
             )}
 
             <div className="profile-menu">
-              {user.isGuide && (
+              {(myTrips.length > 0 || user.payoutUpi) && (
                 <button
                   type="button"
                   className="profile-menu-item"
@@ -663,9 +638,9 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
                 >
                   <span>
                     Payment details
-                    {!user.payoutUpi && !user.payoutBank && (
+                    {!user.payoutUpi && (
                       <span className="field-hint profile-menu-hint">
-                        Add these so travellers can pay you
+                        Add your UPI ID so travellers can pay you
                       </span>
                     )}
                   </span>
@@ -933,15 +908,6 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
         />
       )}
 
-      {guideDetails && (
-        <GuideDetails
-          user={user}
-          requirePayout={guideDetails.free === false}
-          onClose={() => setGuideDetails(null)}
-          onSaved={handleGuideDetailsSaved}
-        />
-      )}
-
       {tripFormState && (
         <TripForm
           trip={tripFormState.trip}
@@ -1056,7 +1022,7 @@ export default function Home({ user, onUserChange, onLogout, onSignIn, tourReady
         </button>
       )}
 
-      {touring && <AppTour user={user} onClose={finishTour} />}
+      {touring && <AppTour onClose={finishTour} />}
     </div>
   )
 }
@@ -1181,11 +1147,6 @@ function TripRow({ trip, onClick, showStatus }) {
           {showStatus ? <StatusPill status={trip.status} /> : <RatingBadge rating={trip.rating} />}
           <span>
             {showStatus ? formatPrice(trip) : `By ${trip.guide.name}`}
-            {!showStatus && trip.guide.verified && (
-              <span className="verified-badge verified-badge-sm" title="Verified guide">
-                <VerifiedIcon />
-              </span>
-            )}
           </span>
         </div>
       </div>
@@ -1258,11 +1219,12 @@ function ExploreTab({ onSelectTrip }) {
 
 /**
  * "My Trips" is the traveler's own history — the trips they booked and
- * attended. A guide can switch to the listings they publish, which is
- * a separate concept with its own lifecycle controls (doc §5 steps 5–9).
+ * attended. Anyone can switch to the trips they have posted, which they are the
+ * guide on, with their own lifecycle controls (doc §5 steps 5–9).
  */
 function MyTripsTab({
-  user,
+  startSegment,
+  error,
   bookings,
   loadingBookings,
   listings,
@@ -1276,17 +1238,17 @@ function MyTripsTab({
   onExplore,
   onViewApplicants,
 }) {
-  const [segment, setSegment] = useState('attending')
+  const [active, setSegment] = useState(startSegment)
   const pendingTotal = listings.reduce((sum, trip) => sum + (trip.pendingRequests ?? 0), 0)
   const segments = [
     { key: 'attending', label: 'Attending' },
     { key: 'saved', label: 'Saved', count: saved.length },
-    ...(user.canPostTrips ? [{ key: 'listings', label: 'My listings', badge: pendingTotal }] : []),
+    { key: 'listings', label: 'My listings', badge: pendingTotal },
   ]
-  const active = segments.some((s) => s.key === segment) ? segment : 'attending'
 
   return (
     <div className="my-trips-view">
+      {error && <p className="form-error">{error}</p>}
       <div className="segmented" role="tablist" aria-label="My trips">
         {segments.map((s) => (
           <button
@@ -1452,6 +1414,7 @@ function ListingsList({
     return (
       <div className="empty-state">
         <p>You haven&apos;t posted any trips yet.</p>
+        <p className="field-hint">You&apos;re the guide on any trip you post.</p>
         <button type="button" className="submit empty-state-cta" onClick={onCreateTrip}>
           Create a trip
         </button>
@@ -1684,18 +1647,16 @@ function EditProfileOverlay({ user, onClose, onSaved }) {
             />
           </label>
 
-          {user.isGuide && (
-            <label className="field">
-              <span className="field-label">Guide bio</span>
-              <textarea
-                name="bio"
-                value={form.bio}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Shown to travelers on your trips"
-              />
-            </label>
-          )}
+          <label className="field">
+            <span className="field-label">About you</span>
+            <textarea
+              name="bio"
+              value={form.bio}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Shown to travellers on trips you post"
+            />
+          </label>
 
           <div className="field">
             <span className="field-label">Travel interests</span>

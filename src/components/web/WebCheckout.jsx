@@ -235,7 +235,7 @@ export default function WebCheckout({ tripId, initialTravelers, user, onSignIn, 
           <p className="web-faint">
             {free
               ? 'This trip is free, so there’s nothing to pay. You’re in as soon as you send this, and your ticket arrives in Messages.'
-              : 'Your seats are held while you pay the guide and they check the payment. Your ticket arrives in Messages once they confirm.'}
+              : 'Your seats are held while you pay the guide on UPI and send a screenshot in Messages. Your ticket arrives there once they confirm.'}
           </p>
         </aside>
       </div>
@@ -259,7 +259,7 @@ function Confirmation({ trip, booking, onOpenChat }) {
           </p>
         ) : (
           <p>
-            {trip.guide.name} has messaged you with payment details. Pay{' '}
+            {trip.guide.name} has messaged you their UPI ID. Pay{' '}
             {formatMoney(booking.totalPaid, trip.currency)}, then send a screenshot of the payment in
             the chat. Your seats are held, and your ticket arrives once the guide confirms.
           </p>

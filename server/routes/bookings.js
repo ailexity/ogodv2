@@ -8,6 +8,37 @@ import { getSettings } from '../settings.js'
 
 const router = Router()
 
+/**
+ * Bookings not paid yet from when a service fee and tax were added drop to the trip
+ * price. Their chat quotes the old amount, so it also gets the new one. Once done
+ * no row matches, so this does nothing on later boots. Paid bookings keep their totals.
+ */
+function removeExtraFromUnpaidBookings() {
+  const rows = db
+    .prepare(
+      `SELECT b.id, b.user_id, b.trip_id, b.total_paid, b.service_fee, b.tax,
+              t.guide_id, t.title, t.currency
+         FROM bookings b JOIN trips t ON t.id = b.trip_id
+        WHERE b.status = 'pending' AND b.payment_status = 'unpaid' AND (b.service_fee > 0 OR b.tax > 0)`,
+    )
+    .all()
+
+  for (const row of rows) {
+    const total = round2(row.total_paid - row.service_fee - row.tax)
+    db.transaction(() => {
+      db.prepare('UPDATE bookings SET total_paid = ?, service_fee = 0, tax = 0 WHERE id = ?').run(total, row.id)
+      postSystemMessage({
+        travelerId: row.user_id,
+        guideId: row.guide_id,
+        tripId: row.trip_id,
+        bookingId: row.id,
+        kind: 'text',
+        body: `There’s no longer a service fee or tax on ${row.title}. Please pay ${formatAmount(total, row.currency)} instead of the amount above.`,
+      })
+    })()
+  }
+}
+
 const GENDERS = ['female', 'male', 'other', 'prefer_not_to_say']
 
 function round2(value) {
@@ -15,15 +46,11 @@ function round2(value) {
 }
 
 /**
- * Doc §8.3: base price, service fee and taxes. Always computed here — never
- * taken from the client — using the rates the admin has configured.
+ * What a booking costs: the trip price for each traveller, with nothing added.
+ * Always computed here — never taken from the client.
  */
 function priceBooking(pricePerPerson, travelers) {
-  const { service_fee_rate: feeRate, tax_rate: taxRate } = getSettings()
-  const base = round2(pricePerPerson * travelers)
-  const serviceFee = round2(base * feeRate)
-  const tax = round2((base + serviceFee) * taxRate)
-  return { base, serviceFee, tax, total: round2(base + serviceFee + tax) }
+  return { total: round2(pricePerPerson * travelers) }
 }
 
 function formatAmount(amount, currency) {
@@ -31,20 +58,16 @@ function formatAmount(amount, currency) {
   return currency === 'INR' ? `₹${value}` : `${currency} ${value}`
 }
 
-/** The automatic message from the guide after a booking: thanks, amount and where to pay. */
+/** The automatic message from the guide after a booking: thanks, amount and their UPI ID. */
 function paymentRequestText({ travelerName, tripTitle, travelers, total, currency, guide }) {
   const lines = [
     `Hi ${travelerName.split(' ')[0]}, thanks for booking ${tripTitle} for ${travelers} ${travelers === 1 ? 'traveller' : 'travellers'}!`,
     '',
-    `To confirm your seats, please pay ${formatAmount(total, currency)} to me:`,
-  ]
-  if (guide.payout_upi) lines.push(`UPI: ${guide.payout_upi}`)
-  if (guide.payout_bank) lines.push(`Bank: ${guide.payout_bank}`)
-  if (!guide.payout_upi && !guide.payout_bank) lines.push('I’ll share my payment details here shortly.')
-  lines.push(
+    `To confirm your seats, please pay ${formatAmount(total, currency)} to my UPI ID:`,
+    guide.payout_upi ?? 'I’ll share it here shortly.',
     '',
-    'Once you’ve paid, send a screenshot of the payment in this chat. I’ll confirm your booking as soon as I’ve verified it.',
-  )
+    'Once you’ve paid, send a screenshot of the payment in this chat. I’ll confirm your booking and send your ticket as soon as I’ve verified it.',
+  ]
   return lines.join('\n')
 }
 
@@ -379,8 +402,8 @@ router.post('/', authenticate, (req, res) => {
   const bookingId = db.transaction(() => {
     const result = db
       .prepare(
-        `INSERT INTO bookings (trip_id, user_id, travelers, status, payment_status, total_paid, service_fee, tax, notes)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO bookings (trip_id, user_id, travelers, status, payment_status, total_paid, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         trip.id,
@@ -389,8 +412,6 @@ router.post('/', authenticate, (req, res) => {
         status,
         free ? 'not_required' : 'unpaid',
         price.total,
-        price.serviceFee,
-        price.tax,
         String(req.body?.notes ?? '').trim() || null,
       )
 
@@ -417,7 +438,7 @@ router.post('/', authenticate, (req, res) => {
   // trip it's the traveller saying they're coming, so the guide gets the unread
   // badge, and both of them get the ticket card.
   const guide = db
-    .prepare('SELECT name, payout_upi, payout_bank FROM users WHERE id = ?')
+    .prepare('SELECT name, payout_upi FROM users WHERE id = ?')
     .get(trip.guide_id)
   const conversationId = postSystemMessage({
     travelerId: req.user.id,
@@ -468,5 +489,7 @@ router.get('/:id/ticket', authenticate, (req, res) => {
   res.set('Content-Disposition', `attachment; filename="${bookingReference(row.booking_id)}.pdf"`)
   renderTicket(mapBooking(row, loadTravelers(row.booking_id)), guide, res)
 })
+
+removeExtraFromUnpaidBookings()
 
 export default router

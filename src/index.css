@@ -1289,26 +1289,6 @@ body {
   width: 100%;
 }
 
-/* ---------- Verified badge ------------------------------------------- */
-
-.verified-badge {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 6px;
-  color: var(--ink);
-  vertical-align: middle;
-}
-
-.verified-badge svg {
-  width: 16px;
-  height: 16px;
-}
-
-.verified-badge-sm svg {
-  width: 13px;
-  height: 13px;
-}
-
 .header-badge {
   display: inline-flex;
   align-items: center;
@@ -1325,16 +1305,6 @@ body {
 .header-badge svg {
   width: 13px;
   height: 13px;
-}
-
-.certified-tag {
-  margin-left: 6px;
-  padding: 2px 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--ink-soft);
 }
 
 /* ---------- Status pills --------------------------------------------- */
@@ -1426,10 +1396,6 @@ body {
   margin: 0;
   font-size: 12px;
   color: var(--ink-faint);
-}
-
-.status-card-verified {
-  border-color: var(--ink);
 }
 
 .status-card-rejected {
@@ -2400,37 +2366,6 @@ body {
   color: var(--ink);
 }
 
-.rate-input {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  gap: 6px;
-}
-
-.rate-input input {
-  width: 84px;
-  height: 42px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface-alt);
-  font: inherit;
-  font-size: 15px;
-  text-align: right;
-  color: var(--ink);
-  outline: none;
-}
-
-.rate-input input:focus {
-  border-color: var(--ink);
-  background: var(--surface);
-}
-
-.rate-suffix {
-  font-size: 14px;
-  color: var(--ink-faint);
-}
-
 .save-note {
   margin: 12px 0 0;
   font-size: 13px;
@@ -2708,22 +2643,6 @@ body {
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.greeting-verified {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  display: flex;
-  padding: 2px;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--violet);
-}
-
-.greeting-verified svg {
-  width: 13px;
-  height: 13px;
 }
 
 .home-search {
@@ -5171,19 +5090,4 @@ button {
   font-size: 13px;
   font-weight: 700;
   color: var(--ink);
-}
-
-/* ---------- Guide details and free trips ------------------------------ */
-
-.status-card-edit {
-  margin-top: 10px;
-}
-
-.guide-areas {
-  margin: -4px 0 16px;
-}
-
-.trip-payout-notice {
-  flex-direction: column;
-  margin-bottom: 0;
 }

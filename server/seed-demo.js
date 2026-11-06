@@ -9,9 +9,9 @@ function upsertGuide() {
   if (!user) {
     const result = db
       .prepare(
-        `INSERT INTO users (email, password_hash, role, name, guide_status, certified, bio, languages, interests,
-                          email_verified, payout_upi, phone, guide_since)
-         VALUES (?, ?, 'guide', ?, 'verified', 1, ?, ?, ?, 1, 'arjun.mehta@okaxis', '+91 98100 12345', datetime('now'))`,
+        `INSERT INTO users (email, password_hash, name, bio, languages, interests,
+                          email_verified, payout_upi, phone)
+         VALUES (?, ?, ?, ?, ?, ?, 1, 'arjun.mehta@okaxis', '+91 98100 12345')`,
       )
       .run(
         'guide@gmail.com',
@@ -25,14 +25,12 @@ function upsertGuide() {
     console.log(`created guide@gmail.com (id ${user.id})`)
   } else {
     db.prepare(
-      `UPDATE users SET password_hash = ?, role = 'guide', guide_status = 'verified', certified = 1,
-              email_verified = 1, token_version = token_version + 1,
-              guide_since = COALESCE(guide_since, datetime('now')),
+      `UPDATE users SET password_hash = ?, email_verified = 1, token_version = token_version + 1,
               payout_upi = COALESCE(payout_upi, 'arjun.mehta@okaxis')
         WHERE id = ?`,
     ).run(hashPassword('Guide@1234'), user.id)
     user = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)
-    console.log(`updated existing guide@gmail.com (id ${user.id}) to verified guide, password reset`)
+    console.log(`updated existing guide@gmail.com (id ${user.id}), password reset`)
   }
 
   return user

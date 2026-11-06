@@ -44,7 +44,7 @@ function discard(filePath) {
 }
 
 export const BLOG_QUERY = `
-  SELECT b.*, u.name AS author_name, u.guide_status AS author_guide_status,
+  SELECT b.*, u.name AS author_name,
          (SELECT COUNT(*) FROM blog_votes v WHERE v.blog_id = b.id AND v.value = 1)  AS upvotes,
          (SELECT COUNT(*) FROM blog_votes v WHERE v.blog_id = b.id AND v.value = -1) AS downvotes
     FROM blogs b
@@ -68,7 +68,6 @@ export function mapBlog(row) {
     author: {
       id: row.author_id,
       name: row.author_name,
-      verified: row.author_guide_status === 'verified',
     },
   }
 }

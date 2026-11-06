@@ -86,7 +86,7 @@ export default function WebMyTrips() {
 }
 
 const PAYMENT_HINT = {
-  unpaid: 'Pay the guide using the details in Messages, then send them a screenshot.',
+  unpaid: 'Pay the guide on the UPI ID in Messages, then send them a screenshot.',
   proof_sent: 'Payment screenshot sent — the guide is checking it.',
 }
 

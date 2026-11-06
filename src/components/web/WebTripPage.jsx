@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 import { BOOKING_STATUS } from '../../data/categories.js'
 import { RatingBadge, TripCover, formatMoney, getInitials } from '../TripDetail.jsx'
-import { CheckIcon, ChevronLeftIcon, CloseIcon, HeartIcon, MessageIcon, VerifiedIcon } from '../icons.jsx'
+import { CheckIcon, ChevronLeftIcon, CloseIcon, HeartIcon, MessageIcon } from '../icons.jsx'
 import PriceSummary, { useQuote } from './PriceSummary.jsx'
 import { formatDays, navigate } from './route.js'
 import { cancelBookingWithConfirm } from '../cancelBooking.js'
@@ -129,17 +129,11 @@ export default function WebTripPage({ tripId, user, onMessageGuide, onSignIn }) 
             <div>
               <p className="web-guide-name">
                 Hosted by {trip.guide.name}
-                {trip.guide.verified && <VerifiedIcon />}
               </p>
               <p className="web-faint">
-                {trip.guide.verified ? 'Verified guide' : 'Guide'}
-                {trip.guide.certified && ' · Certified'}
-                {trip.guide.yearsExperience > 0 && ` · ${trip.guide.yearsExperience} yrs experience`}
+                {trip.guide.id === user?.id ? 'You’re the guide on this trip' : 'Trip guide'}
               </p>
               {trip.guide.bio && <p className="web-guide-bio">{trip.guide.bio}</p>}
-              {trip.guide.areas?.length > 0 && (
-                <p className="web-faint">Runs trips in {trip.guide.areas.join(', ')}</p>
-              )}
               {trip.guide.id !== user?.id && (
                 <button type="button" className="web-btn-ghost web-guide-message" onClick={() => onMessageGuide(trip)}>
                   <MessageIcon />
@@ -352,7 +346,7 @@ function BookingCard({ trip, user, booking, now, onCancelled }) {
           <p className="web-faint web-center">
             {free
               ? 'Nothing to pay. You’re in as soon as you confirm your details.'
-              : 'You pay the guide directly. They confirm your seats once they’ve checked the payment.'}
+              : 'You pay the guide on UPI and send a screenshot in Messages. Your ticket arrives once they’ve checked it.'}
           </p>
         </>
       )}

@@ -1,5 +1,4 @@
 import { RatingBadge, TripCover, formatPrice } from '../TripDetail.jsx'
-import { VerifiedIcon } from '../icons.jsx'
 import { formatDays } from './route.js'
 import { formatDateRange } from '../../data/dates.js'
 
@@ -23,7 +22,6 @@ export default function WebTripCard({ trip }) {
         )}
         <p className="web-card-guide">
           {trip.guide.name}
-          {trip.guide.verified && <VerifiedIcon />}
         </p>
         <div className="web-card-foot">
           <span className="web-card-price">{formatPrice(trip)}</span>

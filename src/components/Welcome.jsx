@@ -3,7 +3,7 @@ import { api } from '../api/client.js'
 import { randomFact } from '../data/facts.js'
 import { useBackLayer } from '../hooks/useBackLayer.js'
 import { TripCover } from './TripDetail.jsx'
-import { ArrowUpIcon, ChevronUpIcon, CompassIcon, StarIcon, VerifiedIcon } from './icons.jsx'
+import { ArrowUpIcon, ChevronUpIcon, CompassIcon, StarIcon } from './icons.jsx'
 
 /** Drag distance (px) past which releasing dismisses instead of springing back. */
 const DISMISS_AFTER = 90
@@ -17,10 +17,8 @@ export function ordinalSuffix(day) {
   return { 1: 'st', 2: 'nd', 3: 'rd' }[day % 10] ?? 'th'
 }
 
-function guideNote(user) {
-  if (user.guideStatus === 'suspended') return 'Your guide account is suspended'
-  if (user.canPostTrips) return user.certified ? 'You are a certified guide' : 'You can post trips'
-  return 'Post your first trip'
+function statusNote(user) {
+  return user.suspended ? 'Your account is suspended from posting trips' : 'Post a trip or join one'
 }
 
 export default function Welcome({ user, onDismiss }) {
@@ -171,10 +169,9 @@ export default function Welcome({ user, onDismiss }) {
           <div className="bento-col">
             <div className="bento-card bento-note bento-short">
               <span className="bento-note-label">
-                {user.guideStatus === 'verified' && <VerifiedIcon />}
                 Your status
               </span>
-              <p className="bento-note-text">{guideNote(user)}</p>
+              <p className="bento-note-text">{statusNote(user)}</p>
             </div>
 
             <div className="bento-card bento-photo bento-accent bento-tall">

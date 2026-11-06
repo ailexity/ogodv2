@@ -53,25 +53,19 @@ export const TOUR_STEPS = [
     target: 'nav-trips',
     scroll: false,
     title: 'My Trips',
-    body: (user) =>
-      user.canPostTrips
-        ? 'Your bookings and saved trips — plus your listings, where you review applicants and move trips through their lifecycle.'
-        : 'Your upcoming and past bookings, and every trip you’ve saved for later.',
+    body: 'Your bookings and saved trips, plus the trips you’ve posted. On those you’re the guide: you review applicants and confirm their payments.',
   },
   {
     target: 'messages',
     scroll: false,
     title: 'Messages',
-    body: 'Chat with guides before you book. Once you book, your guide’s payment details arrive here.',
+    body: 'Chat with guides before you book. Once you book, your guide’s UPI ID arrives here. Send your payment screenshot in the chat, and your ticket comes back the same way.',
   },
   {
     target: 'profile',
     scroll: false,
     title: 'Your profile',
-    body: (user) =>
-      user.canPostTrips
-        ? 'Edit your details, add the payment details travellers pay you with, and change settings. Replay this tour from Settings anytime.'
-        : 'Edit your details and settings, or add your guide details to post trips of your own. Replay this tour from Settings anytime.',
+    body: 'Edit your details and change settings. Replay this tour from Settings anytime.',
   },
 ]
 
@@ -122,7 +116,7 @@ function placeCard(rect, card, viewport) {
 }
 
 /** Coach marks over the phone app. Closing it any way — Done, Skip or Escape — calls `onClose`. */
-export default function AppTour({ user, steps = TOUR_STEPS, onClose }) {
+export default function AppTour({ steps = TOUR_STEPS, onClose }) {
   const [index, setIndex] = useState(0)
   const [rect, setRect] = useState(null)
   const [card, setCard] = useState({ width: 320, height: 200 })
@@ -133,7 +127,6 @@ export default function AppTour({ user, steps = TOUR_STEPS, onClose }) {
   const step = steps[index]
   const isFirst = index === 0
   const isLast = index === steps.length - 1
-  const body = typeof step.body === 'function' ? step.body(user) : step.body
 
   const next = useCallback(() => {
     if (isLast) onClose()
@@ -236,7 +229,7 @@ export default function AppTour({ user, steps = TOUR_STEPS, onClose }) {
           {step.title}
         </h2>
         <p id="tour-body" className="tour-body">
-          {body}
+          {step.body}
         </p>
 
         <div className="tour-actions">

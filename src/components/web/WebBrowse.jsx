@@ -16,12 +16,12 @@ const STEPS = [
   {
     Icon: ShieldIcon,
     title: 'Get to know your guide',
-    text: 'See where they run trips and the languages they speak, and message them before you book. A Verified badge means OGod has checked them.',
+    text: 'See who’s running the trip, and message them before you book.',
   },
   {
     Icon: CheckIcon,
     title: 'Book and pay the guide',
-    text: 'Send a request, pay your guide directly, and get your PDF ticket once they confirm. On a free trip, just come along.',
+    text: 'Send a request, pay your guide on UPI, send them a screenshot, and get your PDF ticket once they confirm. On a free trip, just come along.',
   },
 ]
 

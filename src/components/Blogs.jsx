@@ -7,7 +7,6 @@ import {
   MessageIcon,
   ThumbDownIcon,
   ThumbUpIcon,
-  VerifiedIcon,
 } from './icons.jsx'
 import { timeAgo } from '../data/dates.js'
 import { useNow } from '../hooks/useNow.js'
@@ -149,11 +148,6 @@ function BlogCard({ blog, onClick }) {
         <p className="blog-card-author">
           <span className="console-avatar sm">{getInitials(blog.author.name)}</span>
           {blog.author.name}
-          {blog.author.verified && (
-            <span className="verified-badge verified-badge-sm">
-              <VerifiedIcon />
-            </span>
-          )}
         </p>
         <p className="blog-card-votes" aria-label={`${blog.upvotes} upvotes, ${blog.downvotes} dislikes`}>
           <ThumbUpIcon /> {blog.upvotes}
@@ -219,14 +213,7 @@ export function BlogDetailOverlay({
 
         <p className="blog-detail-author">
           <span className="console-avatar sm">{getInitials(blog.author.name)}</span>
-          <span>
-            {blog.author.name}
-            {blog.author.verified && (
-              <span className="verified-badge verified-badge-sm">
-                <VerifiedIcon />
-              </span>
-            )}
-          </span>
+          <span>{blog.author.name}</span>
           <span className="blog-detail-date">{timeAgo(blog.createdAt, now)}</span>
         </p>
 

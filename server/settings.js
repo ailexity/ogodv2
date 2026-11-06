@@ -8,45 +8,20 @@ db.exec(`
 `)
 
 /**
- * Platform settings the admin can change. Every one of these actually changes
+ * Platform switches the admin can change. Every one of these actually changes
  * behaviour somewhere — none are decorative toggles.
  */
 export const SETTING_DEFINITIONS = {
-  service_fee_rate: {
-    label: 'Service fee',
-    hint: 'Share of the base price OGod adds at checkout.',
-    type: 'rate',
-    default: 0.08,
-    min: 0,
-    max: 0.5,
-  },
-  tax_rate: {
-    label: 'Tax rate',
-    hint: 'Applied to the base price plus service fee.',
-    type: 'rate',
-    default: 0.05,
-    min: 0,
-    max: 0.5,
-  },
-  guide_applications_open: {
-    label: 'New guides',
-    hint: 'When off, people who are not guides yet cannot start posting trips.',
-    type: 'boolean',
+  trip_posting_enabled: {
+    label: 'Trip posting',
+    hint: 'When off, no new trips can be posted anywhere on the platform.',
     default: true,
   },
   bookings_enabled: {
     label: 'Bookings',
     hint: 'When off, no new bookings can be placed anywhere on the platform.',
-    type: 'boolean',
     default: true,
   },
-}
-
-function parse(key, raw) {
-  const definition = SETTING_DEFINITIONS[key]
-  if (definition.type === 'boolean') return raw === 'true'
-  const value = Number(raw)
-  return Number.isFinite(value) ? value : definition.default
 }
 
 export function getSettings() {
@@ -56,7 +31,7 @@ export function getSettings() {
   return Object.fromEntries(
     Object.entries(SETTING_DEFINITIONS).map(([key, definition]) => [
       key,
-      key in stored ? parse(key, stored[key]) : definition.default,
+      key in stored ? stored[key] === 'true' : definition.default,
     ]),
   )
 }
@@ -65,7 +40,7 @@ export function getSetting(key) {
   return getSettings()[key]
 }
 
-/** Returns `{ error }` when a value is out of range, otherwise the new settings. */
+/** Returns `{ error }` for a setting that doesn't exist, otherwise the new settings. */
 export function updateSettings(patch) {
   const write = db.prepare(
     'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
@@ -73,20 +48,9 @@ export function updateSettings(patch) {
 
   const pending = []
   for (const [key, raw] of Object.entries(patch ?? {})) {
-    const definition = SETTING_DEFINITIONS[key]
-    if (!definition) return { error: `Unknown setting: ${key}` }
-
-    if (definition.type === 'boolean') {
-      // The string "false" is truthy, so compare explicitly.
-      pending.push([key, raw === true || raw === 'true' ? 'true' : 'false'])
-      continue
-    }
-
-    const value = Number(raw)
-    if (!Number.isFinite(value) || value < definition.min || value > definition.max) {
-      return { error: `${definition.label} must be between ${definition.min * 100}% and ${definition.max * 100}%` }
-    }
-    pending.push([key, String(value)])
+    if (!SETTING_DEFINITIONS[key]) return { error: `Unknown setting: ${key}` }
+    // The string "false" is truthy, so compare explicitly.
+    pending.push([key, raw === true || raw === 'true' ? 'true' : 'false'])
   }
 
   db.transaction(() => {

@@ -189,7 +189,7 @@ function WebNav({ user, route, unread, onOpenMessages, onSignIn, onOpenApp, onLo
                     My trips
                   </button>
                   <button type="button" role="menuitem" onClick={onOpenApp}>
-                    {user.canPostTrips ? 'Guide dashboard' : 'Profile & guide tools'}
+                    Profile &amp; my listings
                   </button>
                   <button type="button" role="menuitem" onClick={onLogout}>
                     Sign out

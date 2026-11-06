@@ -1,7 +1,7 @@
 # OGod
 hello people
 
-A guided-travel marketplace. Travelers sign up, browse trips and book seats or join free ones; anyone can post a trip after giving a few guide details, with no approval step; admins run the platform from a separate console.
+A guided-travel marketplace. Travelers sign up, browse trips and book seats or join free ones; anyone can post a trip with no fee and no approval step, and is the guide on the trips they post; admins run the platform from a separate console.
 
 - **Frontend** — React 18 + Vite, no router (views are driven by state in `src/App.jsx`), plain CSS in `src/index.css`.
 - **Backend** — Express 5 on Node, SQLite via `better-sqlite3`, JWT auth, `multer` for file uploads.
@@ -45,37 +45,39 @@ server/
 
 ## Roles and features
 
-Every account is one of `traveler`, `guide` or `admin`. New sign-ups always start as `traveler`.
+Every account is a `traveler` (a normal member) or an `admin`, and new sign-ups always start as `traveler`. Being a guide isn't a kind of account: whoever posts a trip is the guide on that trip, and a normal traveller everywhere else.
 
 **Traveler**
 - Register, sign in, reset password, edit profile (age, phone, address, bio, interests, languages).
 - Browse and filter published trips, view trip detail with a day-by-day itinerary.
-- Book a seat for a party of travelers — only the lead traveler gives contact details. A live `/bookings/quote` call shows the exact price breakdown the server will charge.
+- Book a seat for a party of travelers — only the lead traveler gives contact details. A live `/bookings/quote` call shows the exact total. They pay exactly the trip price, with no service fee or tax, directly to the guide.
 - Join a free trip ("just come along"): no payment and no approval, and the ticket arrives straight away.
 - Post travel stories (blogs) with a photo or video, and see everyone else's on the home feed.
-- Become a guide by giving their guide details: phone, languages and areas, plus experience and a bio if they like. There are no documents, no fee and no review.
 
-**Guide** (anyone who has given their guide details)
+**Guide** (any member, on the trips they post)
 - Create, edit, duplicate and delete trips: destination, category, cover image, duration, meeting point, group size, price, currency, difficulty, languages, inclusions/exclusions, highlights, dates and booking deadline.
-- Post a trip as paid, or free with a price of 0. A paid trip can't go live without a UPI ID or bank details, because travellers pay the guide directly.
-- Move a trip through its lifecycle: `draft → published → booking_open → booking_closed → confirmed → ongoing → completed`, plus `archived` and `cancelled`. A free trip goes straight from `draft` to `booking_open`.
+- Post a trip as paid, or free with a price of 0. Going live needs a phone number, and on a paid trip a UPI ID, both given on the trip form.
+- Get paid on their own UPI ID: the traveller gets it in an automatic chat message, pays it and sends a screenshot in the chat. The guide checks the money arrived and approves, which sends the PDF ticket.
+- Move a trip through its lifecycle: `draft → published → booking_open → booking_closed → confirmed → ongoing → completed`, plus `archived` and `cancelled`. Publishing opens a trip for bookings straight away, so it goes from `draft` to `booking_open`; older rows may still be `published`.
 - Review booking requests — approve or decline with a note. A paid booking lands as `pending` until the guide has checked the payment.
 
 **Admin**
 - Gets the moderation console instead of the traveler app.
-- See every guide and the details they gave, and suspend or reinstate them. With no review before someone posts, suspension is the check on a guide.
+- See everyone who has posted a trip, and suspend or reinstate them. With no review before someone posts, suspension is the check on them.
 - Manage people: search, edit, change role, reset password, disable/enable, delete. The last enabled admin is protected from being locked out.
 - Hide or unhide blog posts without touching the author's account.
-- Change platform settings — service fee rate, tax rate, and switches for new guides and bookings. Every setting changes real behaviour.
+- Change platform settings — switches for trip posting and bookings. Every setting changes real behaviour.
 
 ## Data model
 
-`users`, `guide_applications`, `trips`, `trip_itinerary_days`, `bookings`, `booking_travelers`, `blogs`, `settings`.
+`users`, `trips`, `trip_itinerary_days`, `bookings`, `booking_travelers`, `blogs`, `settings`.
 
 Details worth knowing before you touch the schema:
 
-- `users.guide_since` is what lets someone post trips. `users.guide_status` only drives the Verified badge and suspensions, so a new guide stays `none`.
-- `guide_applications` and `users.subscription_until` are left over from the old guide review and yearly fee. Nothing writes to them or depends on them any more; the rows are kept so no records are lost.
+- `trips.guide_id` is who the guide on a trip is; there is no guide account type. `users.guide_status` only records a suspension.
+- A conversation's `traveler_id` and `guide_id` are just its two sides. The same two people can swap roles on another trip, so who is the guide comes from each booking's trip.
+- Databases from before this may still hold `guide_applications`, `users.subscription_until` and other old columns from the guide review and yearly fee. Nothing reads or writes them.
+- `bookings.service_fee` and `bookings.tax` are 0 on new bookings. They stay non-zero only on older bookings that were already paid, so those tickets still show what was paid.
 - A trip priced 0 is a free trip; there is no separate flag. Its bookings are `confirmed` immediately, with `payment_status` set to `not_required`.
 - New columns are added at boot by `ensureColumn()` in [server/db.js](server/db.js), so existing dev databases keep working across pulls.
 - `bookings` uses a **partial** unique index on `(trip_id, user_id) WHERE status != 'cancelled'` — one live booking per traveler per trip, while still allowing someone whose booking was declined to apply again. `dropLegacyBookingConstraint()` rebuilds the table for databases created before that rule existed.
@@ -87,11 +89,10 @@ All routes are under `/api`. `GET /api/health` returns `{ ok: true }`.
 | Prefix          | Auth              | What it covers                                                                 |
 | --------------- | ----------------- | ------------------------------------------------------------------------------ |
 | `/api/auth`     | mixed             | register, login, reset-password, `GET/PATCH /me`, `POST /me/tour` (first-run tour seen) |
-| `/api/guides`   | signed in         | save your guide details                                                        |
-| `/api/trips`    | mixed             | list/filter/read trips (public), create/update/status/duplicate/delete (guide) |
+| `/api/trips`    | mixed             | list/filter/read trips (public), create/update/status/duplicate/delete (signed in) |
 | `/api/bookings` | signed in         | quote, create, my bookings, trip bookings, requests, approve, decline          |
 | `/api/blogs`    | mixed             | list/read (public), create (multipart), delete own, serve media                |
-| `/api/admin`    | admin only        | applications, guides, users, blogs, stats, settings, document downloads        |
+| `/api/admin`    | admin only        | guides, users, blogs, stats, settings                                          |
 
 Auth is a bearer JWT (7-day TTL) stored in `localStorage` under `ogod_token`. Passwords are scrypt-hashed. Uploads are re-named to random hex plus an extension derived from the vetted MIME type, so a client-supplied filename can never escape the upload directory. Limits: **25 MB × 1 file** for blog media (JPG/PNG/WEBP/MP4/WEBM/MOV).
 
@@ -140,7 +141,7 @@ Change this password after first login, or set `OGOD_ADMIN_EMAIL` / `OGOD_ADMIN_
 
 ### Traveler / Guide demo accounts
 
-There are none by default — every non-admin account is created by signing up at `/api/auth/register` (all new sign-ups start as `traveler`). To test the guide flow: register a normal account, tap the **+** button, choose **Post a trip** or **Free trip**, and fill in the guide details it asks for.
+There are none by default — every non-admin account is created by signing up at `/api/auth/register` (all new sign-ups start as `traveler`). To test the guide flow: register a normal account, tap the **+** button, choose **Post a trip** or **Free trip**, and publish.
 
 ## Deployment
 

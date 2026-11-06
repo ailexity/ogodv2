@@ -112,7 +112,6 @@ export const api = {
   updatePayout: (data) => request('PUT', '/auth/me/payout', { body: data }),
   completeTour: () => request('POST', '/auth/me/tour'),
 
-  saveGuideDetails: (data) => request('PUT', '/guides/details', { body: data }),
   listGuides: () => request('GET', '/admin/guides'),
   stats: () => request('GET', '/admin/stats'),
   listUsers: ({ role, q } = {}) => {

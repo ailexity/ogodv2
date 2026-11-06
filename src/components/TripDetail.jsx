@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../api/client.js'
 import { TRIP_STATUS, categoryImage } from '../data/categories.js'
 import { useBackLayer } from '../hooks/useBackLayer.js'
-import { ChevronLeftIcon, HeartIcon, MessageIcon, StarIcon, VerifiedIcon } from './icons.jsx'
+import { ChevronLeftIcon, HeartIcon, MessageIcon, StarIcon } from './icons.jsx'
 import {
   beforeTripStarts,
   canBookNow,
@@ -305,16 +305,9 @@ export default function TripDetail({
           <div>
             <p className="trip-detail-author-name">
               {trip.guide.name}
-              {trip.guide.verified && (
-                <span className="verified-badge" title="Verified guide">
-                  <VerifiedIcon />
-                </span>
-              )}
             </p>
             <p className="trip-detail-author-label">
-              {trip.guide.verified ? 'Verified guide' : 'Guide'}
-              {trip.guide.certified && ' · Certified'}
-              {trip.guide.yearsExperience > 0 && ` · ${trip.guide.yearsExperience} yrs experience`}
+              {trip.guide.id === user?.id ? 'You’re the guide on this trip' : 'Trip guide'}
               {trip.reviewCount > 0 && ` · ${trip.reviewCount} reviews`}
             </p>
           </div>
@@ -331,9 +324,6 @@ export default function TripDetail({
         </div>
 
         {trip.guide.bio && <p className="guide-bio">{trip.guide.bio}</p>}
-        {trip.guide.areas?.length > 0 && (
-          <p className="field-hint guide-areas">Runs trips in {trip.guide.areas.join(', ')}</p>
-        )}
 
         {trip.description && (
           <div className="trip-detail-description">

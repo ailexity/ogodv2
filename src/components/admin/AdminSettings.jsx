@@ -39,11 +39,6 @@ export default function AdminSettings({ user }) {
   }
 
   async function save() {
-    const blank = Object.entries(definitions).find(
-      ([key, definition]) => definition.type === 'rate' && values[key] === '',
-    )
-    if (blank) return setError(`${blank[1].label} needs a value`)
-
     setSaving(true)
     setError('')
     try {
@@ -76,31 +71,16 @@ export default function AdminSettings({ user }) {
                 <span className="field-hint">{definition.hint}</span>
               </div>
 
-              {definition.type === 'boolean' ? (
-                <label className="toggle">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(values[key])}
-                    onChange={(e) => update(key, e.target.checked)}
-                  />
-                  <span className="toggle-track">
-                    <span className="toggle-thumb" />
-                  </span>
-                </label>
-              ) : (
-                <div className="rate-input">
-                  <input
-                    type="number"
-                    value={values[key] === '' ? '' : Math.round((values[key] ?? 0) * 1000) / 10}
-                    min={definition.min * 100}
-                    max={definition.max * 100}
-                    step="0.1"
-                    // Left empty rather than forced to 0, so Backspace can clear the field.
-                    onChange={(e) => update(key, e.target.value === '' ? '' : Number(e.target.value) / 100)}
-                  />
-                  <span className="rate-suffix">%</span>
-                </div>
-              )}
+              <label className="toggle">
+                <input
+                  type="checkbox"
+                  checked={Boolean(values[key])}
+                  onChange={(e) => update(key, e.target.checked)}
+                />
+                <span className="toggle-track">
+                  <span className="toggle-thumb" />
+                </span>
+              </label>
             </div>
           ))}
         </div>

@@ -130,8 +130,9 @@ export function renderTicket(booking, guide, stream) {
     const base = booking.totalPaid - booking.serviceFee - booking.tax
     const lines = [
       [`Trip fare (${booking.travelers} x ${money(trip.pricePerPerson, currency)})`, money(base, currency)],
-      ['Service fee', money(booking.serviceFee, currency)],
-      ['Taxes', money(booking.tax, currency)],
+      // Only bookings from when these were added have them.
+      ...(booking.serviceFee > 0 ? [['Service fee', money(booking.serviceFee, currency)]] : []),
+      ...(booking.tax > 0 ? [['Taxes', money(booking.tax, currency)]] : []),
     ]
     for (const [label, value] of lines) {
       doc.font('Helvetica').fontSize(10).fillColor(SOFT).text(label, left, y)

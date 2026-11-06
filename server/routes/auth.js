@@ -269,18 +269,24 @@ router.patch('/me', authenticate, (req, res) => {
   res.json({ user: publicUser(row) })
 })
 
-/** A guide's payment details, quoted to travellers in the automatic booking message. */
+/**
+ * What someone gives when they post a trip: the UPI ID travellers pay them on,
+ * quoted in the automatic booking message, and a phone number if they have none yet.
+ * A field left out or blank keeps what's there, so a live paid trip can't lose its UPI ID.
+ */
 router.put('/me/payout', authenticate, (req, res) => {
   const upi = String(req.body?.upi ?? '').trim()
-  const bank = String(req.body?.bank ?? '').trim()
+  const phone = String(req.body?.phone ?? '').trim()
   if (upi && !/^[\w.-]{2,}@[a-zA-Z]{2,}$/.test(upi)) {
     return res.status(400).json({ error: 'Enter a valid UPI ID, like name@okaxis' })
   }
-  if (bank.length > 300) return res.status(400).json({ error: 'Bank details are too long' })
+  if (phone && phone.replace(/\D/g, '').length < 7) {
+    return res.status(400).json({ error: 'Enter a phone number travellers can reach you on' })
+  }
 
-  db.prepare('UPDATE users SET payout_upi = ?, payout_bank = ? WHERE id = ?').run(
+  db.prepare('UPDATE users SET payout_upi = COALESCE(?, payout_upi), phone = COALESCE(?, phone) WHERE id = ?').run(
     upi || null,
-    bank || null,
+    phone || null,
     req.user.id,
   )
   res.json({ user: publicUser(findById(req.user.id)) })

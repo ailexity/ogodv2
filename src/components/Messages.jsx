@@ -11,7 +11,6 @@ import {
   MessageIcon,
   SendIcon,
   TicketIcon,
-  VerifiedIcon,
 } from './icons.jsx'
 
 const THREAD_POLL_MS = 4000
@@ -162,7 +161,6 @@ export function MessagesInbox({ onClose, onOpen }) {
               <span className="chat-inbox-top">
                 <span className="chat-inbox-name">
                   {conversation.other.name}
-                  {conversation.other.verified && <VerifiedIcon />}
                 </span>
                 {conversation.lastMessage && (
                   <span className="chat-inbox-time">{formatTime(conversation.lastMessage.createdAt)}</span>
@@ -206,19 +204,22 @@ export function ChatThread({ conversationId, onClose }) {
 
   const append = useCallback((incoming) => {
     if (!incoming.length) return
+    // Known messages are replaced, because a reload brings their booking cards up to date.
     setMessages((prev) => {
-      const known = new Set(prev.map((m) => m.id))
-      const fresh = incoming.filter((m) => !known.has(m.id))
-      return fresh.length ? [...prev, ...fresh] : prev
+      const byId = new Map(prev.map((m) => [m.id, m]))
+      for (const message of incoming) byId.set(message.id, message)
+      return [...byId.values()].sort((a, b) => a.id - b.id)
     })
     lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id))
   }, [])
 
+  useEffect(() => setMessages([]), [conversationId])
+
   useEffect(() => {
     let cancelled = false
     lastIdRef.current = 0
-    setMessages([])
     function load() {
+      const firstLoad = lastIdRef.current === 0
       api
         .conversation(conversationId, lastIdRef.current)
         .then((result) => {
@@ -226,6 +227,8 @@ export function ChatThread({ conversationId, onClose }) {
           setConversation(result.conversation)
           append(result.messages)
           setError('')
+          // A new message usually means a booking changed, so refresh the older cards too.
+          if (!firstLoad && result.messages.length > 0) setReloadKey((key) => key + 1)
         })
         .catch((err) => !cancelled && setError(err.message))
     }
@@ -270,6 +273,8 @@ export function ChatThread({ conversationId, onClose }) {
       const { message } = await api.sendMessage(conversationId, form)
       append([message])
       setText('')
+      // A photo may be the payment screenshot, which changes what the booking card says.
+      if (image) setReloadKey((key) => key + 1)
       setImage(null)
     } catch (err) {
       setError(err.message)
@@ -291,15 +296,10 @@ export function ChatThread({ conversationId, onClose }) {
           <div>
             <p className="chat-header-name">
               {other?.name ?? '…'}
-              {other?.verified && <VerifiedIcon />}
             </p>
             <p className="chat-header-sub">
               {conversation?.trip?.title ??
-                (conversation?.blog
-                  ? `Story: ${conversation.blog.title}`
-                  : other?.isGuide
-                    ? 'Guide'
-                    : 'Traveller')}
+                (conversation?.blog ? `Story: ${conversation.blog.title}` : 'OGod member')}
             </p>
           </div>
         </div>
@@ -322,7 +322,6 @@ export function ChatThread({ conversationId, onClose }) {
               {message.booking && (
                 <BookingCard
                   message={message}
-                  role={conversation?.role}
                   onChanged={() => setReloadKey((key) => key + 1)}
                 />
               )}
@@ -397,11 +396,12 @@ function bookingStatusText(booking, isGuide) {
 
 /**
  * The card under the guide's automatic messages: the booking request (with the
- * guide's approve/decline actions) or the confirmation with the PDF ticket.
+ * guide's approve/decline actions) or the confirmation with the PDF ticket. Who's
+ * the guide comes from the booking, as the same two people can swap roles on another trip.
  */
-function BookingCard({ message, role, onChanged }) {
+function BookingCard({ message, onChanged }) {
   const { booking, kind } = message
-  const isGuide = role === 'guide'
+  const isGuide = booking.iAmGuide
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const amount = moneyOrFree(booking.total, booking.currency)

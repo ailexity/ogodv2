@@ -172,23 +172,6 @@ export function StarIcon() {
   )
 }
 
-/** Doc §9: the verified badge shown on every guide profile and trip post. */
-export function VerifiedIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="m12 1.8 2.6 1.9 3.2-.2.9 3.1 2.6 1.9-1.3 3 1.3 3-2.6 1.9-.9 3.1-3.2-.2L12 22.2l-2.6-1.9-3.2.2-.9-3.1L2.7 15.5l1.3-3-1.3-3 2.6-1.9.9-3.1 3.2.2Z" />
-      <path
-        d="m8.5 12.2 2.4 2.4 4.6-4.9"
-        fill="none"
-        stroke="#fff"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
 export function ShieldIcon() {
   return (
     <svg {...stroke}>

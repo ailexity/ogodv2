@@ -18,44 +18,36 @@ function loadUser(id) {
 
 /**
  * Doc §4 step 7: ongoing trust maintenance. With no review before someone posts,
- * this is what stops a bad actor, so it covers every guide and not just verified ones.
+ * this is what stops a bad actor: they can't post, and what they have open closes.
  */
 router.post('/guides/:id/suspend', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id))
+  const user = loadUser(Number(req.params.id))
   if (!user) return res.status(404).json({ error: 'User not found' })
+  if (user.role === 'admin') return res.status(409).json({ error: 'An admin can’t be suspended' })
   if (user.guide_status === 'suspended') {
-    return res.status(409).json({ error: 'This guide is already suspended' })
-  }
-  if (!user.guide_since && user.guide_status !== 'verified') {
-    return res.status(409).json({ error: 'Only a guide can be suspended' })
+    return res.status(409).json({ error: 'This person is already suspended' })
   }
 
   db.transaction(() => {
-    db.prepare("UPDATE users SET suspended_from = guide_status, guide_status = 'suspended' WHERE id = ?").run(
-      user.id,
-    )
-    // A suspended guide's open listings must stop taking bookings immediately.
+    db.prepare("UPDATE users SET guide_status = 'suspended' WHERE id = ?").run(user.id)
     db.prepare(
       `UPDATE trips SET status = 'booking_closed', updated_at = datetime('now')
         WHERE guide_id = ? AND status IN ('published', 'booking_open')`,
     ).run(user.id)
   })()
 
-  res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) })
+  res.json({ user: publicUser(loadUser(user.id)) })
 })
 
 router.post('/guides/:id/reinstate', (req, res) => {
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(Number(req.params.id))
+  const user = loadUser(Number(req.params.id))
   if (!user) return res.status(404).json({ error: 'User not found' })
   if (user.guide_status !== 'suspended') {
-    return res.status(409).json({ error: 'This guide is not suspended' })
+    return res.status(409).json({ error: 'This person is not suspended' })
   }
 
-  // Guides suspended before `suspended_from` existed could only have been verified.
-  db.prepare(
-    "UPDATE users SET guide_status = COALESCE(suspended_from, 'verified'), suspended_from = NULL WHERE id = ?",
-  ).run(user.id)
-  res.json({ user: publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(user.id)) })
+  db.prepare("UPDATE users SET guide_status = 'none' WHERE id = ?").run(user.id)
+  res.json({ user: publicUser(loadUser(user.id)) })
 })
 
 /** Platform statistics for the admin dashboard. */
@@ -70,25 +62,13 @@ router.get('/stats', (_req, res) => {
         .map((row) => [row.key, row.n]),
     )
 
-  const money = db
-    .prepare(
-      `SELECT COALESCE(SUM(total_paid), 0) AS gross,
-              COALESCE(SUM(service_fee), 0) AS fees,
-              COALESCE(SUM(travelers), 0)   AS seats
-         FROM bookings WHERE status != 'cancelled'`,
-    )
-    .get()
-
   res.json({
     stats: {
       users: {
         total: count('SELECT COUNT(*) AS n FROM users'),
-        travelers: count("SELECT COUNT(*) AS n FROM users WHERE role = 'traveler'"),
-        guides: count("SELECT COUNT(*) AS n FROM users WHERE role = 'guide'"),
+        members: count("SELECT COUNT(*) AS n FROM users WHERE role = 'traveler'"),
         admins: count("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'"),
-      },
-      guides: {
-        verified: count("SELECT COUNT(*) AS n FROM users WHERE guide_status = 'verified'"),
+        postingTrips: count('SELECT COUNT(DISTINCT guide_id) AS n FROM trips'),
         suspended: count("SELECT COUNT(*) AS n FROM users WHERE guide_status = 'suspended'"),
       },
       trips: {
@@ -98,11 +78,7 @@ router.get('/stats', (_req, res) => {
       bookings: {
         total: count('SELECT COUNT(*) AS n FROM bookings'),
         ...byStatus('bookings', 'status'),
-        seatsSold: money.seats,
-      },
-      revenue: {
-        gross: Math.round(money.gross * 100) / 100,
-        platformFees: Math.round(money.fees * 100) / 100,
+        seatsSold: count("SELECT COALESCE(SUM(travelers), 0) AS n FROM bookings WHERE status != 'cancelled'"),
       },
     },
   })
@@ -114,7 +90,7 @@ router.get('/users', (req, res) => {
   const clauses = []
   const params = []
 
-  if (role && ['traveler', 'guide', 'admin'].includes(role)) {
+  if (role && ['traveler', 'admin'].includes(role)) {
     clauses.push('u.role = ?')
     params.push(role)
   }
@@ -181,39 +157,20 @@ router.patch('/users/:id', (req, res) => {
   res.json({ user: publicUser(loadUser(target.id)) })
 })
 
-/** Promote or demote a member directly, outside the guide-application flow. */
+/** Make someone an admin, or take that away. */
 router.patch('/users/:id/role', (req, res) => {
   const target = loadUser(Number(req.params.id))
   if (!target) return res.status(404).json({ error: 'User not found' })
 
   const role = req.body?.role
-  if (!['traveler', 'guide', 'admin'].includes(role)) {
+  if (!['traveler', 'admin'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' })
   }
   if (target.role === 'admin' && role !== 'admin' && isLastEnabledAdmin(target.id)) {
     return res.status(409).json({ error: 'At least one admin must remain' })
   }
 
-  db.transaction(() => {
-    db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, target.id)
-    // Making someone a guide here is the admin vouching for them, so it carries
-    // the Verified badge; they still give their guide details before posting.
-    if (role === 'guide' && target.guide_status !== 'suspended') {
-      db.prepare("UPDATE users SET guide_status = 'verified' WHERE id = ?").run(target.id)
-    } else if (role === 'traveler' && (target.guide_since || ['verified', 'suspended'].includes(target.guide_status))) {
-      // A suspension survives this. Anyone can become a guide again, so clearing
-      // it here would be a way round it.
-      db.prepare(
-        `UPDATE users SET guide_since = NULL, certified = 0,
-                guide_status = CASE WHEN guide_status = 'suspended' THEN 'suspended' ELSE 'none' END
-          WHERE id = ?`,
-      ).run(target.id)
-      db.prepare(
-        `UPDATE trips SET status = 'booking_closed', updated_at = datetime('now')
-          WHERE guide_id = ? AND status IN ('published', 'booking_open')`,
-      ).run(target.id)
-    }
-  })()
+  db.prepare('UPDATE users SET role = ? WHERE id = ?').run(role, target.id)
   res.json({ user: publicUser(loadUser(target.id)) })
 })
 
@@ -266,7 +223,7 @@ router.post('/users/:id/enable', (req, res) => {
   res.json({ user: publicUser(loadUser(target.id)) })
 })
 
-/** Permanent removal — cascades to their trips, bookings and applications. */
+/** Permanent removal — cascades to their trips and bookings. */
 router.delete('/users/:id', (req, res) => {
   const target = loadUser(Number(req.params.id))
   if (!target) return res.status(404).json({ error: 'User not found' })
@@ -292,8 +249,14 @@ router.delete('/users/:id', (req, res) => {
   }
 
   db.transaction(() => {
-    // Older databases have no ON DELETE rule on reviewed_by, so clear it by hand.
-    db.prepare('UPDATE guide_applications SET reviewed_by = NULL WHERE reviewed_by = ?').run(target.id)
+    // Databases from the old guide review still have this table, and some have
+    // no ON DELETE rule on reviewed_by, so clear it by hand.
+    const oldApplications = db
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'guide_applications'")
+      .get()
+    if (oldApplications) {
+      db.prepare('UPDATE guide_applications SET reviewed_by = NULL WHERE reviewed_by = ?').run(target.id)
+    }
     db.prepare('DELETE FROM users WHERE id = ?').run(target.id)
   })()
   res.json({ ok: true })
@@ -331,11 +294,17 @@ router.patch('/settings', (req, res) => {
   res.json({ settings: result.settings, definitions: SETTING_DEFINITIONS })
 })
 
+/** Everyone who has posted a trip, and anyone suspended from posting. */
 router.get('/guides', (_req, res) => {
   const rows = db
-    .prepare("SELECT * FROM users WHERE guide_since IS NOT NULL OR guide_status != 'none' ORDER BY name")
+    .prepare(
+      `SELECT u.*, (SELECT COUNT(*) FROM trips t WHERE t.guide_id = u.id) AS trip_count
+         FROM users u
+        WHERE u.guide_status = 'suspended' OR EXISTS (SELECT 1 FROM trips t WHERE t.guide_id = u.id)
+        ORDER BY u.name`,
+    )
     .all()
-  res.json({ guides: rows.map(publicUser) })
+  res.json({ guides: rows.map((row) => ({ ...publicUser(row), tripCount: row.trip_count })) })
 })
 
 export default router

@@ -2,8 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../api/client.js'
 
 /**
- * Everyone posting trips, with the details they gave. No one is reviewed before
- * they post, so suspending a guide is the check on them.
+ * Everyone who has posted a trip, and how to reach them. No one is reviewed before
+ * they post, so suspending someone is the check on them.
  */
 export default function AdminGuides() {
   const [guides, setGuides] = useState([])
@@ -29,7 +29,7 @@ export default function AdminGuides() {
 
   async function handleGuideAction(guide) {
     try {
-      if (guide.guideStatus === 'suspended') await api.reinstateGuide(guide.id)
+      if (guide.suspended) await api.reinstateGuide(guide.id)
       else await api.suspendGuide(guide.id)
       await load()
     } catch (err) {
@@ -40,37 +40,31 @@ export default function AdminGuides() {
   return (
     <div className="admin-view">
       <section>
-        <h2 className="section-title">Tour guides</h2>
+        <h2 className="section-title">People posting trips</h2>
         {error && <p className="form-error">{error}</p>}
         {loading && <p className="console-empty">Loading…</p>}
-        {!loading && guides.length === 0 && <p className="console-empty">No guides yet.</p>}
+        {!loading && guides.length === 0 && <p className="console-empty">No one has posted a trip yet.</p>}
         <div className="admin-list">
           {guides.map((guide) => (
             <div key={guide.id} className="admin-row admin-row-static">
               <div>
-                <p className="admin-row-name">
-                  {guide.name}
-                  {guide.certified && <span className="certified-tag">Certified</span>}
-                </p>
+                <p className="admin-row-name">{guide.name}</p>
                 <p className="admin-row-meta">
                   {[guide.email, guide.phone].filter(Boolean).join(' · ')}
                 </p>
                 <p className="admin-row-meta">
                   {[
-                    guide.guideAreas.join(', '),
-                    guide.languages.join(', '),
-                    guide.guideExperience > 0 && `${guide.guideExperience} yrs`,
+                    `${guide.tripCount} ${guide.tripCount === 1 ? 'trip' : 'trips'}`,
+                    guide.payoutUpi && `UPI ${guide.payoutUpi}`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </p>
               </div>
               <div className="admin-row-actions">
-                {guide.guideStatus !== 'none' && (
-                  <span className={`status-pill status-${guide.guideStatus}`}>{guide.guideStatus}</span>
-                )}
+                {guide.suspended && <span className="status-pill status-suspended">Suspended</span>}
                 <button type="button" className="ghost-btn" onClick={() => handleGuideAction(guide)}>
-                  {guide.guideStatus === 'suspended' ? 'Reinstate' : 'Suspend'}
+                  {guide.suspended ? 'Reinstate' : 'Suspend'}
                 </button>
               </div>
             </div>

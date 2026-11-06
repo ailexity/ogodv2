@@ -43,14 +43,15 @@ function discard(file) {
 }
 
 /**
- * One thread per traveller–guide pair. `@me` is the caller, which decides
- * which side's last-read marker counts for the unread badge.
+ * One thread per pair of people. `@me` is the caller, which decides which side's
+ * last-read marker counts for the unread badge. `traveler_id` and `guide_id` are
+ * only the thread's two sides: anyone can be the guide on one trip and a traveller
+ * on another, so who is who comes from each booking, not from the thread.
  */
 const CONVERSATION_QUERY = `
   SELECT c.*,
-         tr.name AS traveler_name, tr.guide_status AS traveler_guide_status,
-         tr.guide_since AS traveler_guide_since,
-         g.name AS guide_name, g.guide_status AS guide_status, g.guide_since AS guide_guide_since,
+         tr.name AS traveler_name,
+         g.name AS guide_name,
          t.title AS trip_title,
          bl.title AS blog_title,
          m.body AS last_body, m.image AS last_image, m.sender_id AS last_sender_id,
@@ -71,22 +72,9 @@ function mapConversation(row, me) {
   const iAmTraveler = row.traveler_id === me
   return {
     id: row.id,
-    role: iAmTraveler ? 'traveler' : 'guide',
-    // Chats can be with a guide or with a story's writer, so "guide" comes from
-    // the other person's own status rather than which side of the thread they're on.
     other: iAmTraveler
-      ? {
-          id: row.guide_id,
-          name: row.guide_name,
-          isGuide: Boolean(row.guide_guide_since),
-          verified: row.guide_status === 'verified',
-        }
-      : {
-          id: row.traveler_id,
-          name: row.traveler_name,
-          isGuide: Boolean(row.traveler_guide_since),
-          verified: row.traveler_guide_status === 'verified',
-        },
+      ? { id: row.guide_id, name: row.guide_name }
+      : { id: row.traveler_id, name: row.traveler_name },
     trip: row.trip_id ? { id: row.trip_id, title: row.trip_title } : null,
     blog: row.blog_id ? { id: row.blog_id, title: row.blog_title } : null,
     lastMessage: row.last_at
@@ -102,12 +90,12 @@ function mapConversation(row, me) {
   }
 }
 
-/** The booking a request or ticket message is about, as it stands now. */
-function loadBookingSummary(bookingId) {
+/** The booking a request or ticket message is about, as it stands now, for `me`. */
+function loadBookingSummary(bookingId, me) {
   const row = db
     .prepare(
       `SELECT b.id, b.status, b.payment_status, b.cancelled_by, b.travelers, b.total_paid,
-              t.title, t.currency, t.start_date
+              t.title, t.currency, t.start_date, t.guide_id
          FROM bookings b JOIN trips t ON t.id = b.trip_id
         WHERE b.id = ?`,
     )
@@ -115,6 +103,7 @@ function loadBookingSummary(bookingId) {
   if (!row) return null
   return {
     id: row.id,
+    iAmGuide: row.guide_id === me,
     status: row.status,
     paymentStatus: row.payment_status,
     cancelledBy: row.cancelled_by,
@@ -171,7 +160,7 @@ function mapMessage(row, me) {
   return {
     id: row.id,
     kind: row.kind,
-    booking: row.booking_id ? loadBookingSummary(row.booking_id) : null,
+    booking: row.booking_id ? loadBookingSummary(row.booking_id, me) : null,
     body: row.body,
     image: row.image ? `/messages/media/${row.image}` : null,
     fromMe: row.sender_id === me,
@@ -244,8 +233,8 @@ router.get('/media/:filename', (req, res) => {
 })
 
 /**
- * Opens (or reuses) the thread with someone. Travellers can write to any guide;
- * a guide can write to anyone who booked one of their trips.
+ * Opens (or reuses) the thread with someone. Anyone can write to a trip's guide or
+ * a story's writer; a guide can write to anyone who booked their trip.
  */
 router.post('/', startLimit, (req, res) => {
   const me = req.user.id
@@ -254,7 +243,7 @@ router.post('/', startLimit, (req, res) => {
 
   if (!otherId || otherId === me) return res.status(400).json({ error: 'Choose who to message' })
 
-  const other = db.prepare('SELECT id, guide_status, guide_since, disabled FROM users WHERE id = ?').get(otherId)
+  const other = db.prepare('SELECT id, disabled FROM users WHERE id = ?').get(otherId)
   if (!other || other.disabled) return res.status(404).json({ error: 'This person is not available' })
 
   const trip = tripId ? db.prepare('SELECT id, guide_id FROM trips WHERE id = ?').get(tripId) : null
@@ -276,8 +265,7 @@ router.post('/', startLimit, (req, res) => {
     }
     travelerId = otherId
     guideId = me
-  } else if (blog?.author_id === otherId || other.guide_since || other.guide_status === 'verified') {
-    // Anyone can write to a trip's guide or to the writer of a story.
+  } else if (trip?.guide_id === otherId || blog?.author_id === otherId) {
     travelerId = me
     guideId = otherId
   } else {
@@ -349,14 +337,14 @@ router.post('/:id', sendLimit, requireParticipant, upload.single('image'), (req,
       .run(row.id, me, body, req.file?.filename ?? null).lastInsertRowid
     db.prepare("UPDATE conversations SET updated_at = datetime('now') WHERE id = ?").run(row.id)
     markRead(row, me, id)
-    // A photo from the traveller is most likely their payment screenshot, so
-    // flag their unpaid requests with this guide for checking.
-    if (req.file && row.traveler_id === me) {
+    // A photo from someone with an unpaid booking on the other person's trip is
+    // most likely their payment screenshot, so flag it for checking.
+    if (req.file) {
       db.prepare(
         `UPDATE bookings SET payment_status = 'proof_sent'
           WHERE user_id = ? AND status = 'pending' AND payment_status = 'unpaid'
             AND trip_id IN (SELECT id FROM trips WHERE guide_id = ?)`,
-      ).run(me, row.guide_id)
+      ).run(me, row.traveler_id === me ? row.guide_id : row.traveler_id)
     }
     return id
   })()
